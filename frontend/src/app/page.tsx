@@ -22,7 +22,7 @@ import { Checkbox } from '../components/ui/checkbox';
 import { Textarea } from '../components/ui/textarea';
 import { fetchResources, fetchCourses, fetchModules, fetchItems } from '../lib/api';
 
-interface SearchParams {
+interface SearchParams extends Record<string, string> {
   q?: string;
   area?: string;
   type?: string;
@@ -330,3 +330,4 @@ function Courses() {
     </div>
   );
 }
+
