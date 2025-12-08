@@ -71,7 +71,7 @@ export default function RepositorioLMS() {
           </div>
           <div className="ml-auto flex gap-2">
             <Dialog open={openUpload} onOpenChange={setOpenUpload}>
-              <DialogTrigger>
+              <DialogTrigger asChild>
                 <Button className="bg-indigo-600 hover:bg-indigo-700">
                   <FiUpload className="mr-2" /> Subir recurso
                 </Button>
@@ -330,4 +330,3 @@ function Courses() {
     </div>
   );
 }
-
