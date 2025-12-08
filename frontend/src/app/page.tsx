@@ -1,16 +1,6 @@
 'use client';
 import React, { useEffect, useMemo, useState } from 'react';
-import {
-  FiBookOpen,
-  FiAward,
-  FiUpload,
-  FiSearch,
-  FiFilter,
-  FiFileText,
-  FiTag,
-  FiHome,
-  FiBook
-} from 'react-icons/fi';
+import { BookOpen, GraduationCap, Upload, Search, Filter, FileText, Tags, School, Library } from 'react-icons/fi';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -22,25 +12,15 @@ import { Checkbox } from '../components/ui/checkbox';
 import { Textarea } from '../components/ui/textarea';
 import { fetchResources, fetchCourses, fetchModules, fetchItems } from '../lib/api';
 
-// Interfaz corregida con Record<string, string>
-interface SearchParams extends Record<string, string> {
-  q?: string;
-  area?: string;
-  type?: string;
-  year?: string;
-  tags?: string;
-}
-
 export default function RepositorioLMS() {
   const [busqueda, setBusqueda] = useState('');
-  const [area, setArea] = useState<string>('');
-  const [tipo, setTipo] = useState<string>('');
-  const [anio, setAnio] = useState<string>('');
+  const [area, setArea] = useState('');
+  const [tipo, setTipo] = useState('');
+  const [anio, setAnio] = useState('');
   const [etiquetas, setEtiquetas] = useState<string[]>([]);
   const [tab, setTab] = useState('repositorio');
   const [openUpload, setOpenUpload] = useState(false);
   const [resultados, setResultados] = useState<any[]>([]);
-  const [courses, setCourses] = useState<any[]>([]);
 
   const etiquetasDisponibles = useMemo(() => {
     const allTags = resultados.flatMap(r => r.tags || []);
@@ -48,11 +28,7 @@ export default function RepositorioLMS() {
   }, [resultados]);
 
   useEffect(() => {
-    fetchCourses().then(setCourses).catch(console.error);
-  }, []);
-
-  useEffect(() => {
-    const params: SearchParams = {};
+    const params: Record<string, string> = {};
     if (busqueda) params.q = busqueda;
     if (area) params.area = area;
     if (tipo) params.type = tipo;
@@ -65,16 +41,16 @@ export default function RepositorioLMS() {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
       <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-3">
-          <FiBook />
+          <Library className="w-6 h-6" />
           <div>
             <h1 className="text-2xl font-semibold">Repositorio Académico – Facultad de Educación Teológica</h1>
             <p className="text-sm text-slate-600">Recursos, cursos y evaluaciones en un solo lugar (MVP tipo Canvas)</p>
           </div>
           <div className="ml-auto flex gap-2">
             <Dialog open={openUpload} onOpenChange={setOpenUpload}>
-              <DialogTrigger asChild>
-                <Button variant="default" size="default" className="bg-indigo-600 hover:bg-indigo-700">
-                  <FiUpload className="mr-2" /> Subir recurso
+              <DialogTrigger>
+                <Button className="bg-indigo-600 hover:bg-indigo-700">
+                  <Upload className="mr-2 w-4 h-4" /> Subir recurso
                 </Button>
               </DialogTrigger>
               <UploadDialog onClose={() => setOpenUpload(false)} />
@@ -82,45 +58,48 @@ export default function RepositorioLMS() {
           </div>
         </div>
       </header>
+
       <main className="max-w-7xl mx-auto px-4 py-6">
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="grid grid-cols-3 w-full">
             <TabsTrigger value="repositorio" className="flex items-center gap-2">
-              <FiBookOpen /> Repositorio
+              <BookOpen className="w-4 h-4" /> Repositorio
             </TabsTrigger>
             <TabsTrigger value="aulas" className="flex items-center gap-2">
-              <FiAward /> Aulas (LMS)
+              <GraduationCap className="w-4 h-4" /> Aulas (LMS)
             </TabsTrigger>
             <TabsTrigger value="mi-biblioteca" className="flex items-center gap-2">
-              <FiHome /> Mi Biblioteca
+              <School className="w-4 h-4" /> Mi Biblioteca
             </TabsTrigger>
           </TabsList>
+
           <TabsContent value="repositorio" className="mt-6">
             <div className="grid grid-cols-12 gap-6">
               <aside className="col-span-12 lg:col-span-3">
                 <Card className="rounded-2xl shadow-sm">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-base">
-                      <FiFilter /> Filtros
+                      <Filter className="w-4 h-4" /> Filtros
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Buscar</label>
                       <div className="relative">
-                        <FiSearch className="absolute left-2 top-2.5 text-slate-500" />
+                        <Search className="absolute left-2 top-2.5 w-4 h-4 text-slate-500" />
                         <Input placeholder="Título, autor, palabras clave" value={busqueda} onChange={(e)=>setBusqueda(e.target.value)} className="pl-8" />
                       </div>
                     </div>
+
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Área</label>
-                      <div className="space-y-1">
+                      <div className="grid grid-cols-1 gap-2">
                         {['Biblia','Pastoral','Historia','Ética'].map(a => (
-                          <Button
-                            key={a}
-                            variant="outline"
+                          <Button 
+                            key={a} 
+                            variant="outline" 
                             size="sm"
-                            className={area===a ? 'bg-indigo-50 border-indigo-300' : ''}
+                            className={area===a ? 'bg-indigo-50 border-indigo-300' : ''} 
                             onClick={()=>setArea(area===a ? '' : a)}
                           >
                             {a}
@@ -128,15 +107,16 @@ export default function RepositorioLMS() {
                         ))}
                       </div>
                     </div>
+
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Tipo</label>
-                      <div className="space-y-1">
+                      <div className="grid grid-cols-1 gap-2">
                         {['Artículo','Libro','Tesis','Recurso didáctico'].map(t => (
-                          <Button
-                            key={t}
-                            variant="outline"
+                          <Button 
+                            key={t} 
+                            variant="outline" 
                             size="sm"
-                            className={tipo===t ? 'bg-indigo-50 border-indigo-300' : ''}
+                            className={tipo===t ? 'bg-indigo-50 border-indigo-300' : ''} 
                             onClick={()=>setTipo(tipo===t ? '' : t)}
                           >
                             {t}
@@ -144,15 +124,16 @@ export default function RepositorioLMS() {
                         ))}
                       </div>
                     </div>
+
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Año</label>
-                      <div className="space-y-1">
+                      <div className="grid grid-cols-1 gap-2">
                         {[2025,2024,2023,2022,2021].map(y => (
-                          <Button
-                            key={y}
-                            variant="outline"
+                          <Button 
+                            key={y} 
+                            variant="outline" 
                             size="sm"
-                            className={anio===String(y) ? 'bg-indigo-50 border-indigo-300' : ''}
+                            className={anio===String(y) ? 'bg-indigo-50 border-indigo-300' : ''} 
                             onClick={()=>setAnio(anio===String(y) ? '' : String(y))}
                           >
                             {y}
@@ -160,43 +141,37 @@ export default function RepositorioLMS() {
                         ))}
                       </div>
                     </div>
+
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Etiquetas</label>
                       <div className="flex flex-wrap gap-2">
                         {etiquetasDisponibles.map((t) => {
                           const active = etiquetas.includes(t);
                           return (
-                            <Badge
-                              key={t}
-                              variant="outline"
+                            <Badge 
+                              key={t} 
+                              onClick={()=> setEtiquetas(prev => active ? prev.filter(x=>x!==t) : [...prev, t])} 
                               className={`cursor-pointer ${active ? 'bg-indigo-600 text-white' : ''}`}
-                              onClick={()=> setEtiquetas(prev => active ? prev.filter(x=>x!==t) : [...prev, t])}
                             >
-                              <FiTag /> {t}
+                              <Tags className="w-3 h-3" /> {t}
                             </Badge>
                           );
                         })}
                       </div>
                     </div>
+
                     <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={()=>{ setBusqueda(''); setArea(''); setTipo(''); setAnio(''); setEtiquetas([]); }}
-                      >
+                      <Button variant="outline" size="sm" onClick={()=>{ setBusqueda(''); setArea(''); setTipo(''); setAnio(''); setEtiquetas([]); }}>
                         Limpiar
                       </Button>
-                      <Button
-                        variant="default"
-                        size="sm"
-                        className="bg-indigo-600 hover:bg-indigo-700"
-                      >
+                      <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700">
                         Aplicar
                       </Button>
                     </div>
                   </CardContent>
                 </Card>
               </aside>
+
               <section className="col-span-12 lg:col-span-9 space-y-4">
                 {resultados.length === 0 ? (
                   <Card className="rounded-2xl">
@@ -227,11 +202,11 @@ export default function RepositorioLMS() {
                           <div className="flex gap-2 pt-2">
                             <a href={r.file_url || '#'} target="_blank" rel="noreferrer">
                               <Button variant="outline" size="sm" className="gap-2">
-                                <FiFileText /> Ver / Descargar
+                                <FileText className="w-4 h-4" /> Ver
                               </Button>
                             </a>
                             <Button variant="outline" size="sm">Citar</Button>
-                            <Button variant="default" size="sm" className="bg-indigo-600 hover:bg-indigo-700">Guardar</Button>
+                            <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700">Guardar</Button>
                           </div>
                         </CardContent>
                       </Card>
@@ -241,9 +216,11 @@ export default function RepositorioLMS() {
               </section>
             </div>
           </TabsContent>
+
           <TabsContent value="aulas" className="mt-6">
             <Courses />
           </TabsContent>
+
           <TabsContent value="mi-biblioteca" className="mt-6">
             <Card className="rounded-2xl">
               <CardContent className="py-12 text-center text-slate-600">
@@ -253,6 +230,7 @@ export default function RepositorioLMS() {
           </TabsContent>
         </Tabs>
       </main>
+
       <footer className="border-t">
         <div className="max-w-7xl mx-auto px-4 py-6 text-sm text-slate-500">
           © {new Date().getFullYear()} Facultad de Educación Teológica • Repositorio & LMS (MVP).
@@ -265,13 +243,15 @@ export default function RepositorioLMS() {
 function UploadDialog({ onClose }: { onClose: () => void }) {
   const [titulo, setTitulo] = useState('');
   const [autores, setAutores] = useState('');
-  const [area, setArea] = useState<string>('');
-  const [tipo, setTipo] = useState<string>('');
-  const [anio, setAnio] = useState<string>('');
+  const [area, setArea] = useState('');
+  const [tipo, setTipo] = useState('');
+  const [anio, setAnio] = useState('');
   const [resumen, setResumen] = useState('');
   const [etiquetas, setEtiquetas] = useState('');
   const [aceptaLicencia, setAceptaLicencia] = useState(false);
+
   const canSubmit = titulo && autores && area && tipo && anio && aceptaLicencia;
+
   return (
     <DialogContent className="sm:max-w-xl">
       <DialogHeader>
@@ -315,7 +295,7 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
       </div>
       <DialogFooter>
         <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-        <Button disabled={!canSubmit} variant="default" size="sm" className="bg-indigo-600 hover:bg-indigo-700">Guardar (MVP)</Button>
+        <Button disabled={!canSubmit} size="sm" className="bg-indigo-600 hover:bg-indigo-700">Guardar (MVP)</Button>
       </DialogFooter>
     </DialogContent>
   );
@@ -325,22 +305,22 @@ function Courses() {
   const [courses, setCourses] = useState<any[]>([]);
   const [modulesByCourse, setModulesByCourse] = useState<Record<string, any[]>>({});
   const [itemsByModule, setItemsByModule] = useState<Record<string, any[]>>({});
-  
+
   useEffect(() => {
     fetchCourses().then(setCourses).catch(console.error);
   }, []);
-  
+
   useEffect(() => {
     courses.forEach(c => {
       fetchModules(c.id).then(mods => {
         setModulesByCourse(prev => ({ ...prev, [c.id]: mods }));
-        mods.forEach(m => {
+        mods.forEach((m: any) => {
           fetchItems(m.id).then(items => setItemsByModule(prev => ({ ...prev, [m.id]: items })));
         });
       });
     });
   }, [courses]);
-  
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {courses.map((c) => (
