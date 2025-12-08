@@ -1,10 +1,38 @@
+import React, { createContext, useContext } from 'react';
 
-import React from 'react';
-export function Dialog({ children, open, onOpenChange }) {
-  return <div>{children}</div>;
+const TabsContext = createContext<{ value: string; onValueChange: (v: string) => void } | null>(null);
+
+export function Tabs({ value, onValueChange, children }: any) {
+  return (
+    <TabsContext.Provider value={{ value, onValueChange }}>
+      <div>{children}</div>
+    </TabsContext.Provider>
+  );
 }
-export function DialogTrigger({ asChild, children }) { return children; }
-export function DialogContent({ className='', children }) { return <div className={`fixed inset-0 bg-black/30 flex items-center justify-center z-50`}><div className={`bg-white rounded-xl p-4 w-full max-w-xl ${className}`}>{children}</div></div>; }
-export function DialogHeader({ children }) { return <div className='mb-2'>{children}</div>; }
-export function DialogFooter({ children }) { return <div className='mt-4 flex justify-end gap-2'>{children}</div>; }
-export function DialogTitle({ children }) { return <h3 className='text-lg font-semibold'>{children}</h3>; }
+
+export function TabsList({ className = '', children }: any) {
+  return <div className={`flex gap-2 ${className}`}>{children}</div>;
+}
+
+export function TabsTrigger({ value, className = '', children }: any) {
+  const context = useContext(TabsContext);
+  if (!context) return null;
+  
+  const isActive = context.value === value;
+  const activeClass = isActive ? 'bg-white shadow-sm border-indigo-200' : 'bg-transparent hover:bg-slate-50';
+  
+  return (
+    <button
+      className={`px-3 py-2 text-sm border rounded-md transition ${activeClass} ${className}`}
+      onClick={() => context.onValueChange(value)}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function TabsContent({ value, className = '', children }: any) {
+  const context = useContext(TabsContext);
+  if (!context || context.value !== value) return null;
+  return <div className={className}>{children}</div>;
+}
