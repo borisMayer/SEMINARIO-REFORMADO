@@ -22,7 +22,7 @@ import { Checkbox } from '../components/ui/checkbox';
 import { Textarea } from '../components/ui/textarea';
 import { fetchResources, fetchCourses, fetchModules, fetchItems } from '../lib/api';
 
-interface SearchParams extends Record<string, string> {
+interface SearchParams {
   q?: string;
   area?: string;
   type?: string;
@@ -115,7 +115,15 @@ export default function RepositorioLMS() {
                       <label className="text-sm font-medium">Área</label>
                       <div className="space-y-1">
                         {['Biblia','Pastoral','Historia','Ética'].map(a => (
-                          <Button key={a} variant="outline" className={area===a? 'bg-indigo-50 border-indigo-300' : ''} onClick={()=>setArea(area===a? undefined : a)}>{a}</Button>
+                          <Button
+                            key={a}
+                            variant="outline"
+                            size="sm"
+                            className={area===a ? 'bg-indigo-50 border-indigo-300' : ''}
+                            onClick={()=>setArea(area===a ? undefined : a)}
+                          >
+                            {a}
+                          </Button>
                         ))}
                       </div>
                     </div>
@@ -123,7 +131,15 @@ export default function RepositorioLMS() {
                       <label className="text-sm font-medium">Tipo</label>
                       <div className="space-y-1">
                         {['Artículo','Libro','Tesis','Recurso didáctico'].map(t => (
-                          <Button key={t} variant="outline" className={tipo===t? 'bg-indigo-50 border-indigo-300' : ''} onClick={()=>setTipo(tipo===t? undefined : t)}>{t}</Button>
+                          <Button
+                            key={t}
+                            variant="outline"
+                            size="sm"
+                            className={tipo===t ? 'bg-indigo-50 border-indigo-300' : ''}
+                            onClick={()=>setTipo(tipo===t ? undefined : t)}
+                          >
+                            {t}
+                          </Button>
                         ))}
                       </div>
                     </div>
@@ -131,7 +147,15 @@ export default function RepositorioLMS() {
                       <label className="text-sm font-medium">Año</label>
                       <div className="space-y-1">
                         {[2025,2024,2023,2022,2021].map(y => (
-                          <Button key={y} variant="outline" className={anio===String(y)? 'bg-indigo-50 border-indigo-300' : ''} onClick={()=>setAnio(anio===String(y)? undefined : String(y))}>{y}</Button>
+                          <Button
+                            key={y}
+                            variant="outline"
+                            size="sm"
+                            className={anio===String(y) ? 'bg-indigo-50 border-indigo-300' : ''}
+                            onClick={()=>setAnio(anio===String(y) ? undefined : String(y))}
+                          >
+                            {y}
+                          </Button>
                         ))}
                       </div>
                     </div>
@@ -141,7 +165,12 @@ export default function RepositorioLMS() {
                         {etiquetasDisponibles.map((t) => {
                           const active = etiquetas.includes(t);
                           return (
-                            <Badge key={t} onClick={()=> setEtiquetas(prev => active? prev.filter(x=>x!==t) : [...prev, t])} className={`cursor-pointer ${active? 'bg-indigo-600 text-white' : ''}`} >
+                            <Badge
+                              key={t}
+                              variant="outline"
+                              className={`cursor-pointer ${active ? 'bg-indigo-600 text-white' : ''}`}
+                              onClick={()=> setEtiquetas(prev => active ? prev.filter(x=>x!==t) : [...prev, t])}
+                            >
                               <FiTag /> {t}
                             </Badge>
                           );
@@ -149,8 +178,20 @@ export default function RepositorioLMS() {
                       </div>
                     </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" onClick={()=>{ setBusqueda(''); setArea(undefined); setTipo(undefined); setAnio(undefined); setEtiquetas([]); }}>Limpiar</Button>
-                      <Button className="bg-indigo-600 hover:bg-indigo-700">Aplicar</Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={()=>{ setBusqueda(''); setArea(undefined); setTipo(undefined); setAnio(undefined); setEtiquetas([]); }}
+                      >
+                        Limpiar
+                      </Button>
+                      <Button
+                        variant="default"
+                        size="sm"
+                        className="bg-indigo-600 hover:bg-indigo-700"
+                      >
+                        Aplicar
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -184,10 +225,12 @@ export default function RepositorioLMS() {
                           </div>
                           <div className="flex gap-2 pt-2">
                             <a href={r.file_url || '#'} target="_blank" rel="noreferrer">
-                              <Button variant="outline" className="gap-2"><FiFileText /> Ver / Descargar</Button>
+                              <Button variant="outline" size="sm" className="gap-2">
+                                <FiFileText /> Ver / Descargar
+                              </Button>
                             </a>
-                            <Button variant="outline">Citar</Button>
-                            <Button className="bg-indigo-600 hover:bg-indigo-700">Guardar</Button>
+                            <Button variant="outline" size="sm">Citar</Button>
+                            <Button variant="default" size="sm" className="bg-indigo-600 hover:bg-indigo-700">Guardar</Button>
                           </div>
                         </CardContent>
                       </Card>
@@ -241,7 +284,7 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
             <SelectTrigger><SelectValue placeholder="Área" /></SelectTrigger>
             <SelectContent>
               {['Biblia','Pastoral','Historia','Ética'].map(a => (
-                <SelectItem key={a} value={a} onClick={()=>setArea(a)}>{a}</SelectItem>
+                <SelectItem key={a} value={a}>{a}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -249,7 +292,7 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
             <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
             <SelectContent>
               {['Artículo','Libro','Tesis','Recurso didáctico'].map(t => (
-                <SelectItem key={t} value={t} onClick={()=>setTipo(t)}>{t}</SelectItem>
+                <SelectItem key={t} value={t}>{t}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -257,7 +300,7 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
             <SelectTrigger><SelectValue placeholder="Año" /></SelectTrigger>
             <SelectContent>
               {[2025,2024,2023,2022,2021].map(y => (
-                <SelectItem key={y} value={String(y)} onClick={()=>setAnio(String(y))}>{y}</SelectItem>
+                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -270,8 +313,8 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
         </div>
       </div>
       <DialogFooter>
-        <Button variant="outline" onClick={onClose}>Cancelar</Button>
-        <Button disabled={!canSubmit} className="bg-indigo-600 hover:bg-indigo-700">Guardar (MVP)</Button>
+        <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
+        <Button disabled={!canSubmit} variant="default" size="sm" className="bg-indigo-600 hover:bg-indigo-700">Guardar (MVP)</Button>
       </DialogFooter>
     </DialogContent>
   );
@@ -322,7 +365,7 @@ function Courses() {
               </div>
             ))}
             <div className="pt-2">
-              <Button variant="outline" className="w-full">Entrar al aula</Button>
+              <Button variant="outline" size="sm" className="w-full">Entrar al aula</Button>
             </div>
           </CardContent>
         </Card>
@@ -330,4 +373,3 @@ function Courses() {
     </div>
   );
 }
-
