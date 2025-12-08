@@ -2,13 +2,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   FiBookOpen,
-  FiGraduationCap,
+  FiAward,
   FiUpload,
   FiSearch,
   FiFilter,
   FiFileText,
   FiTag,
-  FiSchool,
+  FiHome,
   FiBook
 } from 'react-icons/fi';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
@@ -79,10 +79,10 @@ export default function RepositorioLMS() {
               <FiBookOpen /> Repositorio
             </TabsTrigger>
             <TabsTrigger value="aulas" className="flex items-center gap-2" onClick={()=>setTab('aulas')}>
-              <FiGraduationCap /> Aulas (LMS)
+              <FiAward /> Aulas (LMS)
             </TabsTrigger>
             <TabsTrigger value="mi-biblioteca" className="flex items-center gap-2" onClick={()=>setTab('mi-biblioteca')}>
-              <FiSchool /> Mi Biblioteca
+              <FiHome /> Mi Biblioteca
             </TabsTrigger>
           </TabsList>
           <TabsContent value="repositorio" className="mt-6">
