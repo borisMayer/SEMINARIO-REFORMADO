@@ -1,6 +1,16 @@
 'use client';
 import React, { useEffect, useMemo, useState } from 'react';
-import { BookOpen, GraduationCap, Upload, Search, Filter, FileText, Tags, School, Library } from 'react-icons/fi';
+import { 
+  FiBookOpen, 
+  FiAward, 
+  FiUpload, 
+  FiSearch, 
+  FiFilter, 
+  FiFileText, 
+  FiTag, 
+  FiHome, 
+  FiBook 
+} from 'react-icons/fi';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
@@ -41,7 +51,7 @@ export default function RepositorioLMS() {
     <div className="min-h-screen bg-gradient-to-b from-slate-50 to-slate-100">
       <header className="sticky top-0 z-20 bg-white/80 backdrop-blur border-b">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center gap-3">
-          <Library className="w-6 h-6" />
+          <FiBook className="w-6 h-6 text-indigo-600" />
           <div>
             <h1 className="text-2xl font-semibold">Repositorio Académico – Facultad de Educación Teológica</h1>
             <p className="text-sm text-slate-600">Recursos, cursos y evaluaciones en un solo lugar (MVP tipo Canvas)</p>
@@ -50,7 +60,7 @@ export default function RepositorioLMS() {
             <Dialog open={openUpload} onOpenChange={setOpenUpload}>
               <DialogTrigger>
                 <Button className="bg-indigo-600 hover:bg-indigo-700">
-                  <Upload className="mr-2 w-4 h-4" /> Subir recurso
+                  <FiUpload className="mr-2 w-4 h-4" /> Subir recurso
                 </Button>
               </DialogTrigger>
               <UploadDialog onClose={() => setOpenUpload(false)} />
@@ -63,13 +73,13 @@ export default function RepositorioLMS() {
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="grid grid-cols-3 w-full">
             <TabsTrigger value="repositorio" className="flex items-center gap-2">
-              <BookOpen className="w-4 h-4" /> Repositorio
+              <FiBookOpen className="w-4 h-4" /> Repositorio
             </TabsTrigger>
             <TabsTrigger value="aulas" className="flex items-center gap-2">
-              <GraduationCap className="w-4 h-4" /> Aulas (LMS)
+              <FiAward className="w-4 h-4" /> Aulas (LMS)
             </TabsTrigger>
             <TabsTrigger value="mi-biblioteca" className="flex items-center gap-2">
-              <School className="w-4 h-4" /> Mi Biblioteca
+              <FiHome className="w-4 h-4" /> Mi Biblioteca
             </TabsTrigger>
           </TabsList>
 
@@ -79,15 +89,20 @@ export default function RepositorioLMS() {
                 <Card className="rounded-2xl shadow-sm">
                   <CardHeader>
                     <CardTitle className="flex items-center gap-2 text-base">
-                      <Filter className="w-4 h-4" /> Filtros
+                      <FiFilter className="w-4 h-4" /> Filtros
                     </CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-4">
                     <div className="space-y-2">
                       <label className="text-sm font-medium">Buscar</label>
                       <div className="relative">
-                        <Search className="absolute left-2 top-2.5 w-4 h-4 text-slate-500" />
-                        <Input placeholder="Título, autor, palabras clave" value={busqueda} onChange={(e)=>setBusqueda(e.target.value)} className="pl-8" />
+                        <FiSearch className="absolute left-2 top-2.5 w-4 h-4 text-slate-500" />
+                        <Input 
+                          placeholder="Título, autor, palabras clave" 
+                          value={busqueda} 
+                          onChange={(e)=>setBusqueda(e.target.value)} 
+                          className="pl-8" 
+                        />
                       </div>
                     </div>
 
@@ -153,7 +168,7 @@ export default function RepositorioLMS() {
                               onClick={()=> setEtiquetas(prev => active ? prev.filter(x=>x!==t) : [...prev, t])} 
                               className={`cursor-pointer ${active ? 'bg-indigo-600 text-white' : ''}`}
                             >
-                              <Tags className="w-3 h-3" /> {t}
+                              <FiTag className="w-3 h-3" /> {t}
                             </Badge>
                           );
                         })}
@@ -161,7 +176,17 @@ export default function RepositorioLMS() {
                     </div>
 
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={()=>{ setBusqueda(''); setArea(''); setTipo(''); setAnio(''); setEtiquetas([]); }}>
+                      <Button 
+                        variant="outline" 
+                        size="sm" 
+                        onClick={()=>{ 
+                          setBusqueda(''); 
+                          setArea(''); 
+                          setTipo(''); 
+                          setAnio(''); 
+                          setEtiquetas([]); 
+                        }}
+                      >
                         Limpiar
                       </Button>
                       <Button size="sm" className="bg-indigo-600 hover:bg-indigo-700">
@@ -182,27 +207,27 @@ export default function RepositorioLMS() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                     {resultados.map((r) => (
-                      <Card key={r.id} className="rounded-2xl shadow-sm">
+                      <Card key={r.id} className="rounded-2xl shadow-sm hover:shadow-md transition">
                         <CardHeader>
                           <CardTitle className="text-base">{r.title}</CardTitle>
                           <p className="text-sm text-slate-600">{(r.authors||[]).join(', ')}</p>
                         </CardHeader>
                         <CardContent className="space-y-3">
-                          <div className="flex gap-2">
+                          <div className="flex gap-2 flex-wrap">
                             <Badge>{r.area}</Badge>
                             <Badge>{r.type}</Badge>
                             <Badge>{r.year}</Badge>
                           </div>
-                          <p className="text-sm text-slate-700">{r.abstract}</p>
+                          <p className="text-sm text-slate-700 line-clamp-3">{r.abstract}</p>
                           <div className="flex flex-wrap gap-2">
                             {(r.tags||[]).map((t: string) => (
                               <Badge key={t} variant="outline">{t}</Badge>
                             ))}
                           </div>
-                          <div className="flex gap-2 pt-2">
+                          <div className="flex gap-2 pt-2 flex-wrap">
                             <a href={r.file_url || '#'} target="_blank" rel="noreferrer">
                               <Button variant="outline" size="sm" className="gap-2">
-                                <FileText className="w-4 h-4" /> Ver
+                                <FiFileText className="w-4 h-4" /> Ver
                               </Button>
                             </a>
                             <Button variant="outline" size="sm">Citar</Button>
@@ -224,15 +249,17 @@ export default function RepositorioLMS() {
           <TabsContent value="mi-biblioteca" className="mt-6">
             <Card className="rounded-2xl">
               <CardContent className="py-12 text-center text-slate-600">
-                Aquí verás tus recursos guardados, cursos inscritos y actividad reciente.
+                <FiHome className="w-12 h-12 mx-auto mb-4 text-slate-400" />
+                <p className="text-lg font-medium mb-2">Mi Biblioteca</p>
+                <p className="text-sm">Aquí verás tus recursos guardados, cursos inscritos y actividad reciente.</p>
               </CardContent>
             </Card>
           </TabsContent>
         </Tabs>
       </main>
 
-      <footer className="border-t">
-        <div className="max-w-7xl mx-auto px-4 py-6 text-sm text-slate-500">
+      <footer className="border-t bg-white">
+        <div className="max-w-7xl mx-auto px-4 py-6 text-sm text-slate-500 text-center">
           © {new Date().getFullYear()} Facultad de Educación Teológica • Repositorio & LMS (MVP).
         </div>
       </footer>
@@ -258,11 +285,21 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
         <DialogTitle>Subir nuevo recurso</DialogTitle>
       </DialogHeader>
       <div className="space-y-4">
-        <Input placeholder="Título" value={titulo} onChange={(e)=>setTitulo(e.target.value)} />
-        <Input placeholder="Autores (separados por coma)" value={autores} onChange={(e)=>setAutores(e.target.value)} />
+        <Input 
+          placeholder="Título" 
+          value={titulo} 
+          onChange={(e)=>setTitulo(e.target.value)} 
+        />
+        <Input 
+          placeholder="Autores (separados por coma)" 
+          value={autores} 
+          onChange={(e)=>setAutores(e.target.value)} 
+        />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Select value={area} onValueChange={setArea}>
-            <SelectTrigger><SelectValue placeholder="Área" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="Área" />
+            </SelectTrigger>
             <SelectContent>
               {['Biblia','Pastoral','Historia','Ética'].map(a => (
                 <SelectItem key={a} value={a}>{a}</SelectItem>
@@ -270,7 +307,9 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
             </SelectContent>
           </Select>
           <Select value={tipo} onValueChange={setTipo}>
-            <SelectTrigger><SelectValue placeholder="Tipo" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="Tipo" />
+            </SelectTrigger>
             <SelectContent>
               {['Artículo','Libro','Tesis','Recurso didáctico'].map(t => (
                 <SelectItem key={t} value={t}>{t}</SelectItem>
@@ -278,7 +317,9 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
             </SelectContent>
           </Select>
           <Select value={anio} onValueChange={setAnio}>
-            <SelectTrigger><SelectValue placeholder="Año" /></SelectTrigger>
+            <SelectTrigger>
+              <SelectValue placeholder="Año" />
+            </SelectTrigger>
             <SelectContent>
               {[2025,2024,2023,2022,2021].map(y => (
                 <SelectItem key={y} value={String(y)}>{y}</SelectItem>
@@ -286,16 +327,38 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
             </SelectContent>
           </Select>
         </div>
-        <Textarea placeholder="Resumen / Abstract" value={resumen} onChange={(e)=>setResumen(e.target.value)} />
-        <Input placeholder="Etiquetas (separadas por coma)" value={etiquetas} onChange={(e)=>setEtiquetas(e.target.value)} />
+        <Textarea 
+          placeholder="Resumen / Abstract" 
+          value={resumen} 
+          onChange={(e)=>setResumen(e.target.value)} 
+        />
+        <Input 
+          placeholder="Etiquetas (separadas por coma)" 
+          value={etiquetas} 
+          onChange={(e)=>setEtiquetas(e.target.value)} 
+        />
         <div className="flex items-center gap-2 text-sm">
-          <Checkbox id="lic" checked={aceptaLicencia} onCheckedChange={(v)=>setAceptaLicencia(Boolean(v))} />
-          <label htmlFor="lic">Confirmo derechos y licencia (p.ej., CC BY-NC) y protección de datos personales.</label>
+          <Checkbox 
+            id="lic" 
+            checked={aceptaLicencia} 
+            onCheckedChange={(v)=>setAceptaLicencia(Boolean(v))} 
+          />
+          <label htmlFor="lic" className="cursor-pointer">
+            Confirmo derechos y licencia (p.ej., CC BY-NC) y protección de datos personales.
+          </label>
         </div>
       </div>
       <DialogFooter>
-        <Button variant="outline" size="sm" onClick={onClose}>Cancelar</Button>
-        <Button disabled={!canSubmit} size="sm" className="bg-indigo-600 hover:bg-indigo-700">Guardar (MVP)</Button>
+        <Button variant="outline" size="sm" onClick={onClose}>
+          Cancelar
+        </Button>
+        <Button 
+          disabled={!canSubmit} 
+          size="sm" 
+          className="bg-indigo-600 hover:bg-indigo-700"
+        >
+          Guardar (MVP)
+        </Button>
       </DialogFooter>
     </DialogContent>
   );
@@ -321,27 +384,41 @@ function Courses() {
     });
   }, [courses]);
 
+  if (courses.length === 0) {
+    return (
+      <Card className="rounded-2xl">
+        <CardContent className="py-12 text-center text-slate-600">
+          <FiAward className="w-12 h-12 mx-auto mb-4 text-slate-400" />
+          <p className="text-lg font-medium mb-2">No hay cursos disponibles</p>
+          <p className="text-sm">Los cursos aparecerán aquí cuando estén disponibles.</p>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {courses.map((c) => (
-        <Card key={c.id} className="rounded-2xl">
+        <Card key={c.id} className="rounded-2xl hover:shadow-md transition">
           <CardHeader>
             <CardTitle className="text-base">{c.name}</CardTitle>
             <p className="text-sm text-slate-600">{c.term} • {(c.instructors||[]).join(', ')}</p>
           </CardHeader>
           <CardContent className="space-y-3">
             {(modulesByCourse[c.id]||[]).map((m) => (
-              <div key={m.id} className="border rounded-xl p-3">
-                <h4 className="text-sm font-medium">{m.title}</h4>
-                <ul className="mt-2 space-y-2">
+              <div key={m.id} className="border rounded-xl p-3 bg-slate-50">
+                <h4 className="text-sm font-medium mb-2">{m.title}</h4>
+                <ul className="space-y-2">
                   {(itemsByModule[m.id]||[]).map((it) => (
                     <li key={it.id} className="flex items-center justify-between text-sm">
-                      <span>
-                        <Badge className="mr-2">{it.type}</Badge>
-                        {it.title}
+                      <span className="flex items-center gap-2">
+                        <Badge className="text-xs">{it.type}</Badge>
+                        <span className="text-slate-700">{it.title}</span>
                       </span>
                       {it.resource_id && (
-                        <Button variant="outline" size="sm">Abrir recurso</Button>
+                        <Button variant="outline" size="sm">
+                          <FiFileText className="w-3 h-3" />
+                        </Button>
                       )}
                     </li>
                   ))}
@@ -349,7 +426,9 @@ function Courses() {
               </div>
             ))}
             <div className="pt-2">
-              <Button variant="outline" size="sm" className="w-full">Entrar al aula</Button>
+              <Button variant="outline" size="sm" className="w-full">
+                Entrar al aula
+              </Button>
             </div>
           </CardContent>
         </Card>
