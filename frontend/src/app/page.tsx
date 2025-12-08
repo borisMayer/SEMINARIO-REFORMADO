@@ -22,7 +22,8 @@ import { Checkbox } from '../components/ui/checkbox';
 import { Textarea } from '../components/ui/textarea';
 import { fetchResources, fetchCourses, fetchModules, fetchItems } from '../lib/api';
 
-interface SearchParams {
+// Interfaz corregida con Record<string, string>
+interface SearchParams extends Record<string, string> {
   q?: string;
   area?: string;
   type?: string;
@@ -32,9 +33,9 @@ interface SearchParams {
 
 export default function RepositorioLMS() {
   const [busqueda, setBusqueda] = useState('');
-  const [area, setArea] = useState<string | undefined>(undefined);
-  const [tipo, setTipo] = useState<string | undefined>(undefined);
-  const [anio, setAnio] = useState<string | undefined>(undefined);
+  const [area, setArea] = useState<string>('');
+  const [tipo, setTipo] = useState<string>('');
+  const [anio, setAnio] = useState<string>('');
   const [etiquetas, setEtiquetas] = useState<string[]>([]);
   const [tab, setTab] = useState('repositorio');
   const [openUpload, setOpenUpload] = useState(false);
@@ -84,13 +85,13 @@ export default function RepositorioLMS() {
       <main className="max-w-7xl mx-auto px-4 py-6">
         <Tabs value={tab} onValueChange={setTab}>
           <TabsList className="grid grid-cols-3 w-full">
-            <TabsTrigger value="repositorio" className="flex items-center gap-2" onClick={()=>setTab('repositorio')}>
+            <TabsTrigger value="repositorio" className="flex items-center gap-2">
               <FiBookOpen /> Repositorio
             </TabsTrigger>
-            <TabsTrigger value="aulas" className="flex items-center gap-2" onClick={()=>setTab('aulas')}>
+            <TabsTrigger value="aulas" className="flex items-center gap-2">
               <FiAward /> Aulas (LMS)
             </TabsTrigger>
-            <TabsTrigger value="mi-biblioteca" className="flex items-center gap-2" onClick={()=>setTab('mi-biblioteca')}>
+            <TabsTrigger value="mi-biblioteca" className="flex items-center gap-2">
               <FiHome /> Mi Biblioteca
             </TabsTrigger>
           </TabsList>
@@ -120,7 +121,7 @@ export default function RepositorioLMS() {
                             variant="outline"
                             size="sm"
                             className={area===a ? 'bg-indigo-50 border-indigo-300' : ''}
-                            onClick={()=>setArea(area===a ? undefined : a)}
+                            onClick={()=>setArea(area===a ? '' : a)}
                           >
                             {a}
                           </Button>
@@ -136,7 +137,7 @@ export default function RepositorioLMS() {
                             variant="outline"
                             size="sm"
                             className={tipo===t ? 'bg-indigo-50 border-indigo-300' : ''}
-                            onClick={()=>setTipo(tipo===t ? undefined : t)}
+                            onClick={()=>setTipo(tipo===t ? '' : t)}
                           >
                             {t}
                           </Button>
@@ -152,7 +153,7 @@ export default function RepositorioLMS() {
                             variant="outline"
                             size="sm"
                             className={anio===String(y) ? 'bg-indigo-50 border-indigo-300' : ''}
-                            onClick={()=>setAnio(anio===String(y) ? undefined : String(y))}
+                            onClick={()=>setAnio(anio===String(y) ? '' : String(y))}
                           >
                             {y}
                           </Button>
@@ -181,7 +182,7 @@ export default function RepositorioLMS() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={()=>{ setBusqueda(''); setArea(undefined); setTipo(undefined); setAnio(undefined); setEtiquetas([]); }}
+                        onClick={()=>{ setBusqueda(''); setArea(''); setTipo(''); setAnio(''); setEtiquetas([]); }}
                       >
                         Limpiar
                       </Button>
@@ -264,9 +265,9 @@ export default function RepositorioLMS() {
 function UploadDialog({ onClose }: { onClose: () => void }) {
   const [titulo, setTitulo] = useState('');
   const [autores, setAutores] = useState('');
-  const [area, setArea] = useState<string | undefined>(undefined);
-  const [tipo, setTipo] = useState<string | undefined>(undefined);
-  const [anio, setAnio] = useState<string | undefined>(undefined);
+  const [area, setArea] = useState<string>('');
+  const [tipo, setTipo] = useState<string>('');
+  const [anio, setAnio] = useState<string>('');
   const [resumen, setResumen] = useState('');
   const [etiquetas, setEtiquetas] = useState('');
   const [aceptaLicencia, setAceptaLicencia] = useState(false);
@@ -324,9 +325,11 @@ function Courses() {
   const [courses, setCourses] = useState<any[]>([]);
   const [modulesByCourse, setModulesByCourse] = useState<Record<string, any[]>>({});
   const [itemsByModule, setItemsByModule] = useState<Record<string, any[]>>({});
+  
   useEffect(() => {
     fetchCourses().then(setCourses).catch(console.error);
   }, []);
+  
   useEffect(() => {
     courses.forEach(c => {
       fetchModules(c.id).then(mods => {
@@ -337,6 +340,7 @@ function Courses() {
       });
     });
   }, [courses]);
+  
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
       {courses.map((c) => (
