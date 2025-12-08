@@ -22,16 +22,25 @@ import { Checkbox } from '../components/ui/checkbox';
 import { Textarea } from '../components/ui/textarea';
 import { fetchResources, fetchCourses, fetchModules, fetchItems } from '../lib/api';
 
+interface SearchParams {
+  q?: string;
+  area?: string;
+  type?: string;
+  year?: string;
+  tags?: string;
+}
+
 export default function RepositorioLMS() {
   const [busqueda, setBusqueda] = useState('');
-  const [area, setArea] = useState(undefined);
-  const [tipo, setTipo] = useState(undefined);
-  const [anio, setAnio] = useState(undefined);
-  const [etiquetas, setEtiquetas] = useState([]);
+  const [area, setArea] = useState<string | undefined>(undefined);
+  const [tipo, setTipo] = useState<string | undefined>(undefined);
+  const [anio, setAnio] = useState<string | undefined>(undefined);
+  const [etiquetas, setEtiquetas] = useState<string[]>([]);
   const [tab, setTab] = useState('repositorio');
   const [openUpload, setOpenUpload] = useState(false);
-  const [resultados, setResultados] = useState([]);
-  const [courses, setCourses] = useState([]);
+  const [resultados, setResultados] = useState<any[]>([]);
+  const [courses, setCourses] = useState<any[]>([]);
+
   const etiquetasDisponibles = useMemo(() => {
     const allTags = resultados.flatMap(r => r.tags || []);
     return Array.from(new Set(allTags));
@@ -42,7 +51,7 @@ export default function RepositorioLMS() {
   }, []);
 
   useEffect(() => {
-    const params = {};
+    const params: SearchParams = {};
     if (busqueda) params.q = busqueda;
     if (area) params.area = area;
     if (tipo) params.type = tipo;
@@ -169,7 +178,7 @@ export default function RepositorioLMS() {
                           </div>
                           <p className="text-sm text-slate-700">{r.abstract}</p>
                           <div className="flex flex-wrap gap-2">
-                            {(r.tags||[]).map((t) => (
+                            {(r.tags||[]).map((t: string) => (
                               <Badge key={t} variant="outline">{t}</Badge>
                             ))}
                           </div>
@@ -209,12 +218,12 @@ export default function RepositorioLMS() {
   );
 }
 
-function UploadDialog({ onClose }) {
+function UploadDialog({ onClose }: { onClose: () => void }) {
   const [titulo, setTitulo] = useState('');
   const [autores, setAutores] = useState('');
-  const [area, setArea] = useState(undefined);
-  const [tipo, setTipo] = useState(undefined);
-  const [anio, setAnio] = useState(undefined);
+  const [area, setArea] = useState<string | undefined>(undefined);
+  const [tipo, setTipo] = useState<string | undefined>(undefined);
+  const [anio, setAnio] = useState<string | undefined>(undefined);
   const [resumen, setResumen] = useState('');
   const [etiquetas, setEtiquetas] = useState('');
   const [aceptaLicencia, setAceptaLicencia] = useState(false);
@@ -269,9 +278,9 @@ function UploadDialog({ onClose }) {
 }
 
 function Courses() {
-  const [courses, setCourses] = useState([]);
-  const [modulesByCourse, setModulesByCourse] = useState({});
-  const [itemsByModule, setItemsByModule] = useState({});
+  const [courses, setCourses] = useState<any[]>([]);
+  const [modulesByCourse, setModulesByCourse] = useState<Record<string, any[]>>({});
+  const [itemsByModule, setItemsByModule] = useState<Record<string, any[]>>({});
   useEffect(() => {
     fetchCourses().then(setCourses).catch(console.error);
   }, []);
