@@ -1,38 +1,70 @@
-import React, { createContext, useContext } from 'react';
+'use client';
+import React from 'react';
 
-const TabsContext = createContext<{ value: string; onValueChange: (v: string) => void } | null>(null);
-
-export function Tabs({ value, onValueChange, children }: any) {
+export function Select({ value, onValueChange, children }: any) {
+  const [open, setOpen] = React.useState(false);
+  
   return (
-    <TabsContext.Provider value={{ value, onValueChange }}>
-      <div>{children}</div>
-    </TabsContext.Provider>
+    <div className="relative">
+      {React.Children.map(children, child => {
+        if (React.isValidElement(child)) {
+          return React.cloneElement(child as any, { 
+            value, 
+            onValueChange, 
+            open, 
+            setOpen 
+          });
+        }
+        return child;
+      })}
+    </div>
   );
 }
 
-export function TabsList({ className = '', children }: any) {
-  return <div className={`flex gap-2 ${className}`}>{children}</div>;
-}
-
-export function TabsTrigger({ value, className = '', children }: any) {
-  const context = useContext(TabsContext);
-  if (!context) return null;
-  
-  const isActive = context.value === value;
-  const activeClass = isActive ? 'bg-white shadow-sm border-indigo-200' : 'bg-transparent hover:bg-slate-50';
-  
+export function SelectTrigger({ children, value, open, setOpen }: any) {
   return (
     <button
-      className={`px-3 py-2 text-sm border rounded-md transition ${activeClass} ${className}`}
-      onClick={() => context.onValueChange(value)}
+      type="button"
+      className="w-full border rounded-md px-3 py-2 text-sm text-left bg-white hover:bg-slate-50 flex items-center justify-between"
+      onClick={() => setOpen?.(!open)}
     >
       {children}
+      <svg className="w-4 h-4 ml-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+      </svg>
     </button>
   );
 }
 
-export function TabsContent({ value, className = '', children }: any) {
-  const context = useContext(TabsContext);
-  if (!context || context.value !== value) return null;
-  return <div className={className}>{children}</div>;
+export function SelectValue({ placeholder, value }: any) {
+  return <span className={value ? 'text-slate-900' : 'text-slate-500'}>{value || placeholder}</span>;
+}
+
+export function SelectContent({ children, open, setOpen, onValueChange }: any) {
+  if (!open) return null;
+  
+  return (
+    <div className="absolute z-10 w-full mt-1 bg-white border rounded-md shadow-lg max-h-60 overflow-auto">
+      {React.Children.map(children, child => {
+        if (React.isValidElement(child)) {
+          return React.cloneElement(child as any, { onValueChange, setOpen });
+        }
+        return child;
+      })}
+    </div>
+  );
+}
+
+export function SelectItem({ value, children, onValueChange, setOpen }: any) {
+  return (
+    <div
+      className="px-3 py-2 cursor-pointer hover:bg-indigo-50 transition"
+      onClick={() => {
+        onValueChange?.(value);
+        setOpen?.(false);
+      }}
+    >
+      {children}
+    </div>
+  );
 }
