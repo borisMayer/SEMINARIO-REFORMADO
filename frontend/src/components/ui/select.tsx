@@ -1,7 +1,38 @@
+import React, { createContext, useContext } from 'react';
 
-import React from 'react';
-export function Select({ value, onValueChange, children }) { return <div>{children}</div>; }
-export function SelectTrigger({ children }) { return <div className='border rounded-md px-3 py-2 text-sm'>{children}</div>; }
-export function SelectValue({ placeholder }) { return <span className='text-slate-600'>{placeholder}</span>; }
-export function SelectContent({ children }) { return <div className='mt-2 space-y-1'>{children}</div>; }
-export function SelectItem({ value, children, onClick }) { return <div className='px-3 py-2 border rounded-md cursor-pointer' onClick={() => onClick && onClick(value)}>{children}</div>; }
+const TabsContext = createContext<{ value: string; onValueChange: (v: string) => void } | null>(null);
+
+export function Tabs({ value, onValueChange, children }: any) {
+  return (
+    <TabsContext.Provider value={{ value, onValueChange }}>
+      <div>{children}</div>
+    </TabsContext.Provider>
+  );
+}
+
+export function TabsList({ className = '', children }: any) {
+  return <div className={`flex gap-2 ${className}`}>{children}</div>;
+}
+
+export function TabsTrigger({ value, className = '', children }: any) {
+  const context = useContext(TabsContext);
+  if (!context) return null;
+  
+  const isActive = context.value === value;
+  const activeClass = isActive ? 'bg-white shadow-sm border-indigo-200' : 'bg-transparent hover:bg-slate-50';
+  
+  return (
+    <button
+      className={`px-3 py-2 text-sm border rounded-md transition ${activeClass} ${className}`}
+      onClick={() => context.onValueChange(value)}
+    >
+      {children}
+    </button>
+  );
+}
+
+export function TabsContent({ value, className = '', children }: any) {
+  const context = useContext(TabsContext);
+  if (!context || context.value !== value) return null;
+  return <div className={className}>{children}</div>;
+}
