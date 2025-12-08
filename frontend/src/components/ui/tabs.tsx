@@ -1,3 +1,4 @@
+'use client';
 import React, { createContext, useContext } from 'react';
 
 const TabsContext = createContext<{ value: string; onValueChange: (v: string) => void } | null>(null);
