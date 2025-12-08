@@ -1,38 +1,51 @@
-import React, { createContext, useContext } from 'react';
+'use client';
+import React from 'react';
 
-const TabsContext = createContext<{ value: string; onValueChange: (v: string) => void } | null>(null);
-
-export function Tabs({ value, onValueChange, children }: any) {
+export function Dialog({ children, open, onOpenChange }: any) {
   return (
-    <TabsContext.Provider value={{ value, onValueChange }}>
-      <div>{children}</div>
-    </TabsContext.Provider>
+    <div>
+      {React.Children.map(children, child => {
+        if (React.isValidElement(child)) {
+          return React.cloneElement(child as any, { open, onOpenChange });
+        }
+        return child;
+      })}
+    </div>
   );
 }
 
-export function TabsList({ className = '', children }: any) {
-  return <div className={`flex gap-2 ${className}`}>{children}</div>;
+export function DialogTrigger({ asChild, children, open, onOpenChange }: any) {
+  return React.cloneElement(children as any, {
+    onClick: () => onOpenChange?.(true)
+  });
 }
 
-export function TabsTrigger({ value, className = '', children }: any) {
-  const context = useContext(TabsContext);
-  if (!context) return null;
-  
-  const isActive = context.value === value;
-  const activeClass = isActive ? 'bg-white shadow-sm border-indigo-200' : 'bg-transparent hover:bg-slate-50';
+export function DialogContent({ className = '', children, open, onOpenChange }: any) {
+  if (!open) return null;
   
   return (
-    <button
-      className={`px-3 py-2 text-sm border rounded-md transition ${activeClass} ${className}`}
-      onClick={() => context.onValueChange(value)}
+    <div 
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50"
+      onClick={() => onOpenChange?.(false)}
     >
-      {children}
-    </button>
+      <div 
+        className={`bg-white rounded-xl p-6 w-full max-w-xl shadow-2xl ${className}`}
+        onClick={(e) => e.stopPropagation()}
+      >
+        {children}
+      </div>
+    </div>
   );
 }
 
-export function TabsContent({ value, className = '', children }: any) {
-  const context = useContext(TabsContext);
-  if (!context || context.value !== value) return null;
-  return <div className={className}>{children}</div>;
+export function DialogHeader({ children }: any) {
+  return <div className="mb-4">{children}</div>;
+}
+
+export function DialogFooter({ children }: any) {
+  return <div className="mt-6 flex justify-end gap-2">{children}</div>;
+}
+
+export function DialogTitle({ children }: any) {
+  return <h3 className="text-xl font-semibold">{children}</h3>;
 }
