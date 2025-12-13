@@ -6,15 +6,15 @@ const { Pool } = pg;
 
 const app = express();
 
-/* ======================
-   CONFIG
-====================== */
-const PORT = process.env.PORT || 4000;
+/* =========================
+   CONFIG GENERAL
+========================= */
+const PORT = process.env.PORT; // 🔥 OBLIGATORIO EN RAILWAY
 const HOST = '0.0.0.0';
 
-/* ======================
+/* =========================
    MIDDLEWARE
-====================== */
+========================= */
 app.use(cors({
   origin: true,
   credentials: true,
@@ -22,25 +22,28 @@ app.use(cors({
 
 app.use(express.json());
 
-/* ======================
-   DATABASE
-====================== */
+/* =========================
+   DATABASE (NEON)
+========================= */
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.DATABASE_URL
-    ? { rejectUnauthorized: false }
-    : false,
+  host: process.env.PGHOST,
+  port: Number(process.env.PGPORT || 5432),
+  user: process.env.PGUSER,
+  password: process.env.PGPASSWORD,
+  database: process.env.PGDATABASE,
+  ssl: { rejectUnauthorized: false },
+  max: 10,
 });
 
-/* ======================
+/* =========================
    ROUTES
-====================== */
+========================= */
 app.get('/', (req, res) => {
-  res.send('API OK');
+  res.send('🚀 Seminario Reformado API OK');
 });
 
 app.get('/health', (req, res) => {
-  res.json({ ok: true });
+  res.json({ ok: true, time: new Date().toISOString() });
 });
 
 app.get('/api/health', async (req, res) => {
@@ -53,16 +56,21 @@ app.get('/api/health', async (req, res) => {
   }
 });
 
-/* ======================
+/* =========================
    404
-====================== */
+========================= */
 app.use((req, res) => {
-  res.status(404).json({ error: 'Not found' });
+  res.status(404).json({ error: 'Ruta no encontrada' });
 });
 
-/* ======================
-   START
-====================== */
+/* =========================
+   START SERVER
+========================= */
+if (!PORT) {
+  console.error('❌ PORT no definido. Railway no inyectó el puerto.');
+  process.exit(1);
+}
+
 app.listen(PORT, HOST, () => {
-  console.log(`🚀 Server running on ${HOST}:${PORT}`);
+  console.log(`✅ Backend escuchando en ${HOST}:${PORT}`);
 });
