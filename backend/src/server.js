@@ -1,23 +1,51 @@
-
 import express from 'express';
 import cors from 'cors';
 import pkg from 'pg';
 const { Pool } = pkg;
 
 const app = express();
-app.use(cors());
-app.use(express.json());
 
-// ⚠️ Railway inyecta PORT. Debe usarse process.env.PORT
+// CORS: ajusta dominios si quieres restringir
+app.use(cors({
+  origin: [
+    'https://seminario-reformado-b4b5.vercel.app',
+    'https://seminario-reformado-b4b5-krep29byq.vercel.app',
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+}));
+
+app.use(express.json({ limit: '2mb' }));
+
+// ⚠️ Railway inyecta PORT. DEBE usarse process.env.PORT
 const PORT = process.env.PORT || 4000;
 
-const pool = new Pool({
-  host: process.env.PGHOST || 'localhost',
-  port: Number(process.env.PGPORT || 5432),
-  user: process.env.PGUSER || 'appuser',
-  password: process.env.PGPASSWORD || 'apppass',
-  database: process.env.PGDATABASE || 'appdb',
-});
+// Pool PG: soporta variables sueltas o DATABASE_URL (Neon/Railway)
+const poolConfigFromEnv = () => {
+  const url = process.env.DATABASE_URL;
+  if (url) {
+    return {
+      connectionString: url,
+      ssl: { rejectUnauthorized: false },       // usual en Neon/managed PG
+      max: 10,
+      idleTimeoutMillis: 30000,
+      connectionTimeoutMillis: 5000,
+    };
+  }
+  return {
+    host: process.env.PGHOST || 'localhost',
+    port: Number(process.env.PGPORT || 5432),
+    user: process.env.PGUSER || 'appuser',
+    password: process.env.PGPASSWORD || 'apppass',
+    database: process.env.PGDATABASE || 'appdb',
+    ssl: process.env.PGSSLMODE === 'require' ? { rejectUnauthorized: false } : undefined,
+    max: 10,
+    idleTimeoutMillis: 30000,
+    connectionTimeoutMillis: 5000,
+  };
+};
+
+const pool = new Pool(poolConfigFromEnv());
 
 // --- Rutas base para probar rápidamente ---
 app.get('/', (req, res) => {
@@ -41,27 +69,38 @@ app.get('/api/health', async (req, res) => {
 // --- Recursos ---
 app.get('/api/resources', async (req, res) => {
   const { q, area, type, year, tags } = req.query;
+
   const clauses = [];
   const values = [];
   let idx = 1;
 
   if (q) {
     clauses.push(
-      "(LOWER(title) LIKE LOWER($" + idx + ") OR " +
-      "LOWER(abstract) LIKE LOWER($" + idx + ") OR " +
-      "LOWER(array_to_string(authors,' ')) LIKE LOWER($" + idx + "))"
+      `(LOWER(title) LIKE LOWER($${idx}) OR ` +
+      `LOWER(abstract) LIKE LOWER($${idx}) OR ` +
+      `LOWER(array_to_string(authors,' ')) LIKE LOWER($${idx}))`
     );
-    values.push('%' + q + '%'); idx++;
+    values.push(`%${q}%`);
+    idx++;
   }
-  if (area) { clauses.push("area = $" + idx); values.push(area); idx++; }
-  if (type) { clauses.push("type = $" + idx); values.push(type); idx++; }
-  if (year) { clauses.push("year = $" + idx); values.push(Number(year)); idx++; }
-  if (tags) { clauses.push("tags @> $" + idx); values.push(String(tags).split(',')); idx++; }
+  if (area) { clauses.push(`area = $${idx}`); values.push(area); idx++; }
+  if (type) { clauses.push(`type = $${idx}`); values.push(type); idx++; }
+  if (year) { clauses.push(`year = $${idx}`); values.push(Number(year)); idx++; }
 
-  const sql = `SELECT id, title, authors, area, type, year, abstract, tags, file_url
-               FROM resources
-               ${clauses.length ? 'WHERE ' + clauses.join(' AND ') : ''}
-               ORDER BY id DESC`;
+  // tags puede venir como "t1,t2" o array; casteamos a text[]
+  if (tags) {
+    const arr = Array.isArray(tags) ? tags : String(tags).split(',').map(t => t.trim()).filter(Boolean);
+    clauses.push(`tags @> $${idx}::text[]`);
+    values.push(arr);
+    idx++;
+  }
+
+  const sql = `
+    SELECT id, title, authors, area, type, year, abstract, tags, file_url
+    FROM resources
+    ${clauses.length ? 'WHERE ' + clauses.join(' AND ') : ''}
+    ORDER BY id DESC
+  `;
 
   try {
     const { rows } = await pool.query(sql, values);
@@ -73,14 +112,32 @@ app.get('/api/resources', async (req, res) => {
 
 app.post('/api/resources', async (req, res) => {
   const { title, authors, area, type, year, abstract, tags, file_url, license } = req.body;
+
   if (!title || !authors || !area || !type) {
     return res.status(400).json({ error: 'Campos obligatorios faltantes' });
   }
+
+  const authorsArr = Array.isArray(authors) ? authors : String(authors).split(',').map(s => s.trim()).filter(Boolean);
+  const tagsArr = Array.isArray(tags) ? tags : (tags ? String(tags).split(',').map(s => s.trim()).filter(Boolean) : []);
+
   try {
     const { rows } = await pool.query(
-      'INSERT INTO resources (title, authors, area, type, year, abstract, tags, file_url, license, created_by) ' +
-      'VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10) RETURNING id',
-      [title, authors, area, type, year || null, abstract || null, tags || [], file_url || null, license || null, 1]
+      `INSERT INTO resources
+       (title, authors, area, type, year, abstract, tags, file_url, license, created_by)
+       VALUES ($1, $2::text[], $3, $4, $5, $6, $7::text[], $8, $9, $10)
+       RETURNING id`,
+      [
+        title,
+        authorsArr,
+        area,
+        type,
+        year ? Number(year) : null,
+        abstract || null,
+        tagsArr,
+        file_url || null,
+        license || null,
+        1, // TODO: reemplazar con usuario autenticado cuando corresponda
+      ]
     );
     res.status(201).json({ id: rows[0].id });
   } catch (e) {
@@ -124,6 +181,24 @@ app.get('/api/modules/:id/items', async (req, res) => {
   }
 });
 
-app.listen(PORT, () => {
-  console.log(`Backend escuchando en :${PORT}`);
+// 404 controlado
+app.use((req, res) => {
+  res.status(404).json({ error: 'Ruta no encontrada' });
 });
+
+// Manejo de errores generales
+app.use((err, req, res, next) => {
+  console.error('ERROR:', err);
+  res.status(500).json({ error: 'Error interno' });
+});
+
+// Robustez ante rechazos no manejados
+process.on('unhandledRejection', (reason) => {
+  console.error('UnhandledRejection:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('UncaughtException:', err);
+});
+
+app.listen(PORT, ()app.listen(PORT, () => {
+  console.log(`Backend escuchando en :${PORT}`);
