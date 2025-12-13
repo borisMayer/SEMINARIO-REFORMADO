@@ -1,11 +1,13 @@
+
 import express from 'express';
 import cors from 'cors';
 import pkg from 'pg';
+
 const { Pool } = pkg;
 
 const app = express();
 
-// CORS: ajusta dominios si quieres restringir
+// CORS: ajusta dominios si quieres restringirlos
 app.use(cors({
   origin: [
     'https://seminario-reformado-b4b5.vercel.app',
@@ -17,16 +19,16 @@ app.use(cors({
 
 app.use(express.json({ limit: '2mb' }));
 
-// ⚠️ Railway inyecta PORT. DEBE usarse process.env.PORT
+// ⚠️ Railway inyecta PORT. Debe usarse process.env.PORT
 const PORT = process.env.PORT || 4000;
 
-// Pool PG: soporta variables sueltas o DATABASE_URL (Neon/Railway)
+// Pool PG: soporta DATABASE_URL (Neon/Railway) o variables separadas
 const poolConfigFromEnv = () => {
   const url = process.env.DATABASE_URL;
   if (url) {
     return {
       connectionString: url,
-      ssl: { rejectUnauthorized: false },       // usual en Neon/managed PG
+      ssl: { rejectUnauthorized: false },
       max: 10,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 5000,
@@ -87,9 +89,11 @@ app.get('/api/resources', async (req, res) => {
   if (type) { clauses.push(`type = $${idx}`); values.push(type); idx++; }
   if (year) { clauses.push(`year = $${idx}`); values.push(Number(year)); idx++; }
 
-  // tags puede venir como "t1,t2" o array; casteamos a text[]
+  // tags puede venir como "t1,t2" o como array; lo casteamos a text[]
   if (tags) {
-    const arr = Array.isArray(tags) ? tags : String(tags).split(',').map(t => t.trim()).filter(Boolean);
+    const arr = Array.isArray(tags)
+      ? tags
+      : String(tags).split(',').map(t => t.trim()).filter(Boolean);
     clauses.push(`tags @> $${idx}::text[]`);
     values.push(arr);
     idx++;
@@ -117,8 +121,13 @@ app.post('/api/resources', async (req, res) => {
     return res.status(400).json({ error: 'Campos obligatorios faltantes' });
   }
 
-  const authorsArr = Array.isArray(authors) ? authors : String(authors).split(',').map(s => s.trim()).filter(Boolean);
-  const tagsArr = Array.isArray(tags) ? tags : (tags ? String(tags).split(',').map(s => s.trim()).filter(Boolean) : []);
+  const authorsArr = Array.isArray(authors)
+    ? authors
+    : String(authors).split(',').map(s => s.trim()).filter(Boolean);
+
+  const tagsArr = Array.isArray(tags)
+    ? tags
+    : (tags ? String(tags).split(',').map(s => s.trim()).filter(Boolean) : []);
 
   try {
     const { rows } = await pool.query(
@@ -200,5 +209,5 @@ process.on('uncaughtException', (err) => {
   console.error('UncaughtException:', err);
 });
 
-app.listen(PORT, ()app.listen(PORT, () => {
-  console.log(`Backend escuchando en :${PORT}`);
+app.listen(PORT, () => {
+   console.log(`Backend escuchando en :${PORT}`);
