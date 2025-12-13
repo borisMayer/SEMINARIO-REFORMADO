@@ -16,11 +16,11 @@ const HOST = '0.0.0.0';
    MIDDLEWARE
 ========================= */
 app.use(cors({
-  origin: true,
+  origin: [
+    'https://seminario-reformado-b4b5-krep29ybq.vercel.app'
+  ],
   credentials: true,
 }));
-
-app.use(express.json());
 
 /* =========================
    DATABASE (NEON)
