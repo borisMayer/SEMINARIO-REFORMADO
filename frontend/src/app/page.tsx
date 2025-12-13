@@ -276,8 +276,34 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
   const [resumen, setResumen] = useState('');
   const [etiquetas, setEtiquetas] = useState('');
   const [aceptaLicencia, setAceptaLicencia] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   const canSubmit = titulo && autores && area && tipo && anio && aceptaLicencia;
+
+  const handleSubmit = async () => {
+    setLoading(true);
+    try {
+      const { createResource } = await import('../lib/api');
+      await createResource({
+        title: titulo,
+        authors: autores.split(',').map(a => a.trim()),
+        area,
+        type: tipo,
+        year: anio,
+        abstract: resumen,
+        tags: etiquetas.split(',').map(t => t.trim()).filter(Boolean),
+        file_url: null,
+      });
+      alert('¡Recurso creado exitosamente!');
+      onClose();
+      window.location.reload();
+    } catch (error) {
+      console.error(error);
+      alert('Error al crear el recurso. Por favor intenta de nuevo.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <DialogContent className="sm:max-w-xl">
@@ -349,15 +375,16 @@ function UploadDialog({ onClose }: { onClose: () => void }) {
         </div>
       </div>
       <DialogFooter>
-        <Button variant="outline" size="sm" onClick={onClose}>
+        <Button variant="outline" size="sm" onClick={onClose} disabled={loading}>
           Cancelar
         </Button>
         <Button 
-          disabled={!canSubmit} 
+          disabled={!canSubmit || loading} 
           size="sm" 
           className="bg-indigo-600 hover:bg-indigo-700"
+          onClick={handleSubmit}
         >
-          Guardar (MVP)
+          {loading ? 'Guardando...' : 'Guardar (MVP)'}
         </Button>
       </DialogFooter>
     </DialogContent>
