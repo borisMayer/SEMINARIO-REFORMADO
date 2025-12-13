@@ -1,5 +1,5 @@
 // frontend/src/lib/api.ts
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE || 'http://localhost:4000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 // ============================================
 // RECURSOS
@@ -44,14 +44,14 @@ export async function createCourse(data: any) {
 // ============================================
 // MÓDULOS
 // ============================================
-export async function fetchModules(courseId: string) {
+export async function fetchModules(courseId: number) {
   const res = await fetch(`${API_BASE}/api/courses/${courseId}/modules`);
   if (!res.ok) return [];
   return res.json();
 }
 
-export async function createModule(courseId: string, data: any) {
-  const res = await fetch(`${API_BASE}/api/courses/${courseId}/modules`, {
+export async function createModule(data: any) {
+  const res = await fetch(`${API_BASE}/api/modules`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -63,14 +63,14 @@ export async function createModule(courseId: string, data: any) {
 // ============================================
 // ITEMS
 // ============================================
-export async function fetchItems(moduleId: string) {
+export async function fetchItems(moduleId: number) {
   const res = await fetch(`${API_BASE}/api/modules/${moduleId}/items`);
   if (!res.ok) return [];
   return res.json();
 }
 
-export async function createItem(moduleId: string, data: any) {
-  const res = await fetch(`${API_BASE}/api/modules/${moduleId}/items`, {
+export async function createItem(data: any) {
+  const res = await fetch(`${API_BASE}/api/items`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
