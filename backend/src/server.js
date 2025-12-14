@@ -13,21 +13,36 @@ const app = express();
 ========================= */
 const PORT = process.env.PORT || 4000;
 const HOST = '0.0.0.0';
+const isProduction = process.env.NODE_ENV === 'production';
 
 /* =========================
    MIDDLEWARE
 ========================= */
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// CORS mejorado
 app.use(cors({
-  origin: [
-    'https://seminario-reformado-b4b5-krep29ybq.vercel.app',
-    'http://localhost:3000',
-    'http://localhost:5173'
-  ],
+  origin: (origin, callback) => {
+    const allowedOrigins = [
+      'https://seminario-reformado-b4b5-krep29ybq.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:4000'
+    ];
+    
+    // Permitir requests sin origin (como Postman) en desarrollo
+    if (!origin && !isProduction) return callback(null, true);
+    
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(null, false);
+    }
+  },
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
 }));
 
 /* =========================
@@ -41,46 +56,48 @@ const dbConfig = {
   database: process.env.PGDATABASE || 'neondb',
   ssl: { rejectUnauthorized: false },
   max: 10,
+  min: 2,
   idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 5000,
 };
 
+// Validación de variables de entorno
 const requiredEnvVars = ['PGHOST', 'PGUSER', 'PGPASSWORD'];
-const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
+const missingVars = requiredEnvVars.filter(v => !process.env[v]);
 
 if (missingVars.length > 0) {
-  console.error('❌ Variables de entorno faltantes:', missingVars.join(', '));
+  console.error('❌ Variables faltantes:', missingVars.join(', '));
   process.exit(1);
 }
 
 const pool = new Pool(dbConfig);
 
-console.log('🔍 Configuración de Base de Datos:');
-console.log(`   Host: ${dbConfig.host}`);
-console.log(`   Port: ${dbConfig.port}`);
-console.log(`   User: ${dbConfig.user}`);
-console.log(`   Database: ${dbConfig.database}`);
+// Log de configuración
+console.log('🔍 Base de Datos:', {
+  host: dbConfig.host.substring(0, 20) + '...',
+  port: dbConfig.port,
+  database: dbConfig.database,
+});
 
-pool.connect((err, client, release) => {
-  if (err) {
-    console.error('❌ Error conectando a Neon PostgreSQL:');
-    console.error('   Message:', err.message);
-  } else {
-    console.log('✅ Conectado exitosamente a Neon PostgreSQL');
-    release();
-  }
+// Eventos del pool
+pool.on('connect', () => {
+  console.log('🔌 Nueva conexión al pool');
 });
 
 pool.on('error', (err) => {
-  console.error('❌ Error inesperado en el pool:', err);
+  console.error('❌ Error del pool:', err.message);
 });
 
 /* =========================
-   INICIALIZAR TABLAS
+   INICIALIZAR TABLAS (ASYNC - NO BLOQUEANTE)
 ========================= */
 async function initializeTables() {
+  const client = await pool.connect();
   try {
-    await pool.query(`
+    await client.query('BEGIN');
+
+    // Tabla resources
+    await client.query(`
       CREATE TABLE IF NOT EXISTS resources (
         id SERIAL PRIMARY KEY,
         title VARCHAR(500) NOT NULL,
@@ -88,78 +105,98 @@ async function initializeTables() {
         area VARCHAR(100) NOT NULL,
         type VARCHAR(100) NOT NULL,
         year VARCHAR(4) NOT NULL,
-        abstract TEXT,
-        tags TEXT[],
+        abstract TEXT DEFAULT '',
+        tags TEXT[] DEFAULT '{}',
         file_url TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
+      )
     `);
 
-    await pool.query(`
+    // Tabla courses
+    await client.query(`
       CREATE TABLE IF NOT EXISTS courses (
         id SERIAL PRIMARY KEY,
         name VARCHAR(300) NOT NULL,
         term VARCHAR(50) NOT NULL,
         instructors TEXT[] NOT NULL,
-        description TEXT,
+        description TEXT DEFAULT '',
         zoom_link TEXT,
         youtube_playlist TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
+      )
     `);
 
-    await pool.query(`
+    // Tabla modules
+    await client.query(`
       CREATE TABLE IF NOT EXISTS modules (
         id SERIAL PRIMARY KEY,
         course_id INTEGER REFERENCES courses(id) ON DELETE CASCADE,
         title VARCHAR(300) NOT NULL,
-        order_index INTEGER NOT NULL,
+        order_index INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
+      )
     `);
 
-    await pool.query(`
+    // Tabla items
+    await client.query(`
       CREATE TABLE IF NOT EXISTS items (
         id SERIAL PRIMARY KEY,
         module_id INTEGER REFERENCES modules(id) ON DELETE CASCADE,
         type VARCHAR(50) NOT NULL,
         title VARCHAR(300) NOT NULL,
         content_url TEXT,
-        order_index INTEGER NOT NULL,
+        order_index INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-      );
+      )
     `);
 
-    await pool.query(`
+    // Tabla library
+    await client.query(`
       CREATE TABLE IF NOT EXISTS library (
         id SERIAL PRIMARY KEY,
         user_id VARCHAR(100) NOT NULL,
         resource_id INTEGER REFERENCES resources(id) ON DELETE CASCADE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         UNIQUE(user_id, resource_id)
-      );
+      )
     `);
 
-    console.log('✅ Tablas inicializadas correctamente');
+    // Índices para mejorar performance
+    await client.query(`
+      CREATE INDEX IF NOT EXISTS idx_resources_area ON resources(area);
+      CREATE INDEX IF NOT EXISTS idx_resources_type ON resources(type);
+      CREATE INDEX IF NOT EXISTS idx_resources_year ON resources(year);
+      CREATE INDEX IF NOT EXISTS idx_library_user ON library(user_id);
+      CREATE INDEX IF NOT EXISTS idx_modules_course ON modules(course_id);
+      CREATE INDEX IF NOT EXISTS idx_items_module ON items(module_id);
+    `);
+
+    await client.query('COMMIT');
+    console.log('✅ Tablas e índices creados');
   } catch (error) {
-    console.error('❌ Error inicializando tablas:', error);
+    await client.query('ROLLBACK');
+    console.error('❌ Error en tablas:', error.message);
+  } finally {
+    client.release();
   }
 }
 
-initializeTables();
+// Inicializar en background (no bloquea el servidor)
+initializeTables().catch(err => console.error('Init error:', err));
 
 /* =========================
-   ROUTES - BÁSICAS
+   HEALTH CHECKS
 ========================= */
 app.get('/', (req, res) => {
-  res.json({
+  res.status(200).json({
     status: 'online',
     message: '🚀 Seminario Reformado API',
     version: '1.0.0',
     timestamp: new Date().toISOString(),
+    uptime: Math.floor(process.uptime()),
     endpoints: {
       health: '/health',
-      apiHealth: '/api/health',
+      dbHealth: '/api/health',
       resources: '/api/resources',
       courses: '/api/courses',
       library: '/api/library/:userId'
@@ -168,35 +205,44 @@ app.get('/', (req, res) => {
 });
 
 app.get('/health', (req, res) => {
-  res.json({ 
+  res.status(200).json({ 
     ok: true, 
-    service: 'backend',
-    uptime: process.uptime(),
-    time: new Date().toISOString(),
+    service: 'seminario-reformado-api',
+    uptime: Math.floor(process.uptime()),
+    timestamp: new Date().toISOString(),
+    memory: {
+      used: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB',
+      total: Math.round(process.memoryUsage().heapTotal / 1024 / 1024) + 'MB'
+    }
   });
 });
 
 app.get('/api/health', async (req, res) => {
   try {
-    const result = await pool.query('SELECT NOW() as timestamp');
-    res.json({ 
+    const start = Date.now();
+    const result = await pool.query('SELECT NOW() as timestamp, version()');
+    const duration = Date.now() - start;
+    
+    res.status(200).json({ 
       ok: true, 
-      db: 'connected',
-      timestamp: result.rows[0].timestamp
+      database: 'connected',
+      responseTime: `${duration}ms`,
+      timestamp: result.rows[0].timestamp,
+      version: result.rows[0].version.split(' ')[0] + ' ' + result.rows[0].version.split(' ')[1]
     });
-  } catch (err) {
+  } catch (error) {
+    console.error('❌ DB health check failed:', error.message);
     res.status(500).json({ 
       ok: false, 
-      db: 'error',
-      message: err.message
+      database: 'error',
+      message: error.message
     });
   }
 });
 
 /* =========================
-   ROUTES - RECURSOS
+   RECURSOS
 ========================= */
-// GET /api/resources - Listar con filtros
 app.get('/api/resources', async (req, res) => {
   try {
     const { q, area, type, year, tags } = req.query;
@@ -235,20 +281,23 @@ app.get('/api/resources', async (req, res) => {
       paramIndex++;
     }
 
-    query += ' ORDER BY created_at DESC';
+    query += ' ORDER BY created_at DESC LIMIT 100';
 
     const result = await pool.query(query, params);
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching resources:', error);
-    res.status(500).json({ error: 'Error al obtener recursos' });
+    res.status(500).json({ error: 'Error al obtener recursos', details: error.message });
   }
 });
 
-// POST /api/resources - Crear recurso
 app.post('/api/resources', async (req, res) => {
   try {
     const { title, authors, area, type, year, abstract, tags, file_url } = req.body;
+    
+    if (!title || !authors || !area || !type || !year) {
+      return res.status(400).json({ error: 'Campos requeridos: title, authors, area, type, year' });
+    }
     
     const result = await pool.query(
       `INSERT INTO resources (title, authors, area, type, year, abstract, tags, file_url) 
@@ -259,29 +308,35 @@ app.post('/api/resources', async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating resource:', error);
-    res.status(500).json({ error: 'Error al crear recurso' });
+    res.status(500).json({ error: 'Error al crear recurso', details: error.message });
   }
 });
 
-// PUT /api/resources/:id - Actualizar recurso
 app.put('/api/resources/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const { title, authors, area, type, year, abstract, tags, file_url } = req.body;
+    const fields = req.body;
     
-    const result = await pool.query(
-      `UPDATE resources SET 
-        title = COALESCE($1, title),
-        authors = COALESCE($2, authors),
-        area = COALESCE($3, area),
-        type = COALESCE($4, type),
-        year = COALESCE($5, year),
-        abstract = COALESCE($6, abstract),
-        tags = COALESCE($7, tags),
-        file_url = COALESCE($8, file_url)
-       WHERE id = $9 RETURNING *`,
-      [title, authors, area, type, year, abstract, tags, file_url, id]
-    );
+    const updates = [];
+    const values = [];
+    let index = 1;
+
+    Object.keys(fields).forEach(key => {
+      if (fields[key] !== undefined) {
+        updates.push(`${key} = $${index}`);
+        values.push(fields[key]);
+        index++;
+      }
+    });
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No hay campos para actualizar' });
+    }
+
+    values.push(id);
+    const query = `UPDATE resources SET ${updates.join(', ')} WHERE id = $${index} RETURNING *`;
+    
+    const result = await pool.query(query, values);
     
     if (result.rows.length === 0) {
       return res.status(404).json({ error: 'Recurso no encontrado' });
@@ -290,40 +345,46 @@ app.put('/api/resources/:id', async (req, res) => {
     res.json(result.rows[0]);
   } catch (error) {
     console.error('Error updating resource:', error);
-    res.status(500).json({ error: 'Error al actualizar recurso' });
+    res.status(500).json({ error: 'Error al actualizar', details: error.message });
   }
 });
 
-// DELETE /api/resources/:id - Eliminar recurso
 app.delete('/api/resources/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    await pool.query('DELETE FROM resources WHERE id = $1', [id]);
-    res.json({ message: 'Recurso eliminado' });
+    const result = await pool.query('DELETE FROM resources WHERE id = $1 RETURNING id', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Recurso no encontrado' });
+    }
+    
+    res.json({ message: 'Recurso eliminado', id: result.rows[0].id });
   } catch (error) {
     console.error('Error deleting resource:', error);
-    res.status(500).json({ error: 'Error al eliminar recurso' });
+    res.status(500).json({ error: 'Error al eliminar', details: error.message });
   }
 });
 
 /* =========================
-   ROUTES - CURSOS
+   CURSOS
 ========================= */
-// GET /api/courses - Listar cursos
 app.get('/api/courses', async (req, res) => {
   try {
-    const result = await pool.query('SELECT * FROM courses ORDER BY created_at DESC');
+    const result = await pool.query('SELECT * FROM courses ORDER BY created_at DESC LIMIT 50');
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching courses:', error);
-    res.status(500).json({ error: 'Error al obtener cursos' });
+    res.status(500).json({ error: 'Error al obtener cursos', details: error.message });
   }
 });
 
-// POST /api/courses - Crear curso
 app.post('/api/courses', async (req, res) => {
   try {
     const { name, term, instructors, description, zoom_link, youtube_playlist } = req.body;
+    
+    if (!name || !term || !instructors) {
+      return res.status(400).json({ error: 'Campos requeridos: name, term, instructors' });
+    }
     
     const result = await pool.query(
       `INSERT INTO courses (name, term, instructors, description, zoom_link, youtube_playlist) 
@@ -334,11 +395,10 @@ app.post('/api/courses', async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating course:', error);
-    res.status(500).json({ error: 'Error al crear curso' });
+    res.status(500).json({ error: 'Error al crear curso', details: error.message });
   }
 });
 
-// GET /api/courses/:id/modules - Listar módulos de un curso
 app.get('/api/courses/:courseId/modules', async (req, res) => {
   try {
     const { courseId } = req.params;
@@ -349,14 +409,17 @@ app.get('/api/courses/:courseId/modules', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching modules:', error);
-    res.status(500).json({ error: 'Error al obtener módulos' });
+    res.status(500).json({ error: 'Error al obtener módulos', details: error.message });
   }
 });
 
-// POST /api/modules - Crear módulo
 app.post('/api/modules', async (req, res) => {
   try {
-    const { course_id, title, order_index } = req.body;
+    const { course_id, title, order_index = 0 } = req.body;
+    
+    if (!course_id || !title) {
+      return res.status(400).json({ error: 'Campos requeridos: course_id, title' });
+    }
     
     const result = await pool.query(
       'INSERT INTO modules (course_id, title, order_index) VALUES ($1, $2, $3) RETURNING *',
@@ -366,11 +429,10 @@ app.post('/api/modules', async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating module:', error);
-    res.status(500).json({ error: 'Error al crear módulo' });
+    res.status(500).json({ error: 'Error al crear módulo', details: error.message });
   }
 });
 
-// GET /api/modules/:moduleId/items - Listar items de un módulo
 app.get('/api/modules/:moduleId/items', async (req, res) => {
   try {
     const { moduleId } = req.params;
@@ -381,14 +443,17 @@ app.get('/api/modules/:moduleId/items', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching items:', error);
-    res.status(500).json({ error: 'Error al obtener items' });
+    res.status(500).json({ error: 'Error al obtener items', details: error.message });
   }
 });
 
-// POST /api/items - Crear item
 app.post('/api/items', async (req, res) => {
   try {
-    const { module_id, type, title, content_url, order_index } = req.body;
+    const { module_id, type, title, content_url, order_index = 0 } = req.body;
+    
+    if (!module_id || !type || !title) {
+      return res.status(400).json({ error: 'Campos requeridos: module_id, type, title' });
+    }
     
     const result = await pool.query(
       'INSERT INTO items (module_id, type, title, content_url, order_index) VALUES ($1, $2, $3, $4, $5) RETURNING *',
@@ -398,20 +463,19 @@ app.post('/api/items', async (req, res) => {
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error('Error creating item:', error);
-    res.status(500).json({ error: 'Error al crear item' });
+    res.status(500).json({ error: 'Error al crear item', details: error.message });
   }
 });
 
 /* =========================
-   ROUTES - BIBLIOTECA
+   BIBLIOTECA
 ========================= */
-// GET /api/library/:userId - Obtener biblioteca del usuario
 app.get('/api/library/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     const result = await pool.query(
       `SELECT r.* FROM resources r 
-       JOIN library l ON r.id = l.resource_id 
+       INNER JOIN library l ON r.id = l.resource_id 
        WHERE l.user_id = $1 
        ORDER BY l.created_at DESC`,
       [userId]
@@ -419,39 +483,46 @@ app.get('/api/library/:userId', async (req, res) => {
     res.json(result.rows);
   } catch (error) {
     console.error('Error fetching library:', error);
-    res.status(500).json({ error: 'Error al obtener biblioteca' });
+    res.status(500).json({ error: 'Error al obtener biblioteca', details: error.message });
   }
 });
 
-// POST /api/library - Guardar en biblioteca
 app.post('/api/library', async (req, res) => {
   try {
     const { user_id, resource_id } = req.body;
+    
+    if (!user_id || !resource_id) {
+      return res.status(400).json({ error: 'Campos requeridos: user_id, resource_id' });
+    }
     
     const result = await pool.query(
       'INSERT INTO library (user_id, resource_id) VALUES ($1, $2) ON CONFLICT (user_id, resource_id) DO NOTHING RETURNING *',
       [user_id, resource_id]
     );
     
-    res.status(201).json(result.rows[0] || { message: 'Ya existe en biblioteca' });
+    res.status(201).json(result.rows[0] || { message: 'Ya existe en tu biblioteca' });
   } catch (error) {
     console.error('Error saving to library:', error);
-    res.status(500).json({ error: 'Error al guardar en biblioteca' });
+    res.status(500).json({ error: 'Error al guardar', details: error.message });
   }
 });
 
-// DELETE /api/library/:userId/:resourceId - Eliminar de biblioteca
 app.delete('/api/library/:userId/:resourceId', async (req, res) => {
   try {
     const { userId, resourceId } = req.params;
-    await pool.query(
-      'DELETE FROM library WHERE user_id = $1 AND resource_id = $2',
+    const result = await pool.query(
+      'DELETE FROM library WHERE user_id = $1 AND resource_id = $2 RETURNING id',
       [userId, resourceId]
     );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'No encontrado en biblioteca' });
+    }
+    
     res.json({ message: 'Eliminado de biblioteca' });
   } catch (error) {
     console.error('Error removing from library:', error);
-    res.status(500).json({ error: 'Error al eliminar de biblioteca' });
+    res.status(500).json({ error: 'Error al eliminar', details: error.message });
   }
 });
 
@@ -461,45 +532,70 @@ app.delete('/api/library/:userId/:resourceId', async (req, res) => {
 app.use((req, res) => {
   res.status(404).json({ 
     error: 'Endpoint no encontrado',
-    path: req.path
+    path: req.path,
+    method: req.method
   });
 });
 
 app.use((err, req, res, next) => {
-  console.error('❌ Error no manejado:', err);
+  console.error('❌ Error:', err);
   res.status(500).json({ 
-    error: 'Error interno del servidor',
-    message: process.env.NODE_ENV === 'production' ? 'Internal Server Error' : err.message
+    error: 'Error interno',
+    message: isProduction ? 'Internal Server Error' : err.message
   });
 });
 
 /* =========================
    GRACEFUL SHUTDOWN
 ========================= */
-const gracefulShutdown = () => {
-  console.log('⚠️  Señal de cierre recibida, cerrando servidor...');
-  pool.end(() => {
-    console.log('✅ Pool de conexiones cerrado');
-    process.exit(0);
+const gracefulShutdown = (signal) => {
+  console.log(`⚠️  ${signal} recibido, cerrando...`);
+  
+  server.close(() => {
+    console.log('🔴 HTTP server cerrado');
+    pool.end(() => {
+      console.log('🔴 Pool cerrado');
+      process.exit(0);
+    });
   });
+  
+  // Force close después de 10s
+  setTimeout(() => {
+    console.error('⚠️  Forzando cierre...');
+    process.exit(1);
+  }, 10000);
 };
 
-process.on('SIGTERM', gracefulShutdown);
-process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 /* =========================
    START SERVER
 ========================= */
-app.listen(PORT, HOST, () => {
+const server = app.listen(PORT, HOST, async () => {
   console.log('');
   console.log('═══════════════════════════════════════════');
-  console.log('✅ Servidor iniciado exitosamente');
+  console.log('✅ Servidor iniciado');
   console.log('═══════════════════════════════════════════');
-  console.log(`📍 Escuchando en: ${HOST}:${PORT}`);
-  console.log(`🌍 Environment: ${process.env.RAILWAY_ENVIRONMENT_NAME || 'development'}`);
-  console.log(`🔗 Public URL: ${process.env.RAILWAY_PUBLIC_DOMAIN || 'N/A'}`);
+  console.log(`📍 ${HOST}:${PORT}`);
+  console.log(`🌍 ${process.env.RAILWAY_ENVIRONMENT_NAME || 'local'}`);
+  console.log(`🔗 ${process.env.RAILWAY_PUBLIC_DOMAIN || 'localhost'}`);
   console.log('═══════════════════════════════════════════');
-}).on('error', (err) => {
-  console.error('❌ Error al iniciar el servidor:', err);
+  
+  // Test DB connection
+  try {
+    await pool.query('SELECT 1');
+    console.log('✅ DB conectada');
+  } catch (err) {
+    console.error('❌ DB error:', err.message);
+  }
+});
+
+server.on('error', (err) => {
+  console.error('❌ Server error:', err);
   process.exit(1);
 });
+
+// Keep-alive para Railway
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
