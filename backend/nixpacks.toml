@@ -1,0 +1,12 @@
+[phases.setup]
+nixPkg = []
+aptPkg = []
+
+[phases.build]
+cmd = ["npm", "install"]
+
+[phases.start]
+cmd = ["npm", "start"]
+
+[variables]
+PORT = "4000"
