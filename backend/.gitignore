@@ -6,4 +6,5 @@ node_modules/
 *.log
 dist/
 build/
+railway.json
 backend/railway.json
