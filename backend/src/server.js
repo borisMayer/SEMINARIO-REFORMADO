@@ -55,7 +55,6 @@ const dbConfig = {
   min: 1,
   idleTimeoutMillis: 20000,
   connectionTimeoutMillis: 10000,
-  // Configuración para mantener conexiones vivas
   keepAlive: true,
   keepAliveInitialDelayMillis: 10000,
 };
@@ -68,16 +67,6 @@ console.log('🔍 DB:', {
   port: dbConfig.port,
   database: dbConfig.database,
 });
-
-// Función para crear pool helper
-async function ensurePool() {
-  if (!pool || pool.ending || pool.ended) {
-    console.log('🔄 Recreando pool...');
-    pool = new Pool(dbConfig);
-    setupPoolListeners();
-  }
-  return pool;
-}
 
 // Configurar listeners del pool
 function setupPoolListeners() {
@@ -112,6 +101,16 @@ function setupPoolListeners() {
 
 setupPoolListeners();
 
+// Función para asegurar que el pool esté disponible
+async function ensurePool() {
+  if (!pool || pool.ending || pool.ended) {
+    console.log('🔄 Recreando pool...');
+    pool = new Pool(dbConfig);
+    setupPoolListeners();
+  }
+  return pool;
+}
+
 // Wrapper para queries con retry
 async function queryWithRetry(text, params, retries = 3) {
   for (let i = 0; i < retries; i++) {
@@ -123,7 +122,6 @@ async function queryWithRetry(text, params, retries = 3) {
       
       if (i === retries - 1) throw error;
       
-      // Esperar antes de reintentar
       await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
     }
   }
@@ -200,19 +198,20 @@ async function initializeTables() {
   }
 }
 
-initializeTables();
+// Inicializar tablas en background (no bloquea)
+initializeTables().catch(err => console.error('Init error:', err));
 
 /* =========================
-   HEALTH CHECKS
+   HEALTH CHECKS - PRIMERAS RUTAS
 ========================= */
-app.get('/', (req, res) => {
-  res.status(200).json({
-    status: 'online',
-    message: '🚀 Seminario Reformado API',
-    version: '1.0.0',
-    timestamp: new Date().toISOString(),
-    uptime: Math.floor(process.uptime()),
-  });
+
+// 🔥 HEALTHCHECK ESPECIAL PARA RAILWAY - DEBE SER LA PRIMERA RUTA
+app.get('/_health', (req, res) => {
+  res.status(200).send('OK');
+});
+
+app.get('/healthz', (req, res) => {
+  res.status(200).send('OK');
 });
 
 app.get('/health', (req, res) => {
@@ -220,6 +219,24 @@ app.get('/health', (req, res) => {
     ok: true, 
     uptime: Math.floor(process.uptime()),
     timestamp: new Date().toISOString(),
+    memory: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB'
+  });
+});
+
+app.get('/', (req, res) => {
+  res.status(200).json({
+    status: 'online',
+    message: '🚀 Seminario Reformado API',
+    version: '1.0.0',
+    timestamp: new Date().toISOString(),
+    uptime: Math.floor(process.uptime()),
+    endpoints: {
+      health: '/health',
+      dbHealth: '/api/health',
+      resources: '/api/resources',
+      courses: '/api/courses',
+      library: '/api/library/:userId'
+    }
   });
 });
 
@@ -236,6 +253,7 @@ app.get('/api/health', async (req, res) => {
       timestamp: result.rows[0].time,
     });
   } catch (error) {
+    console.error('DB health check error:', error.message);
     res.status(500).json({ 
       ok: false, 
       database: 'error',
@@ -284,6 +302,7 @@ app.get('/api/resources', async (req, res) => {
     const result = await queryWithRetry(query, params);
     res.json(result.rows);
   } catch (error) {
+    console.error('Error fetching resources:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -293,7 +312,7 @@ app.post('/api/resources', async (req, res) => {
     const { title, authors, area, type, year, abstract, tags, file_url } = req.body;
     
     if (!title || !authors || !area || !type || !year) {
-      return res.status(400).json({ error: 'Campos requeridos faltantes' });
+      return res.status(400).json({ error: 'Campos requeridos: title, authors, area, type, year' });
     }
     
     const result = await queryWithRetry(
@@ -304,6 +323,60 @@ app.post('/api/resources', async (req, res) => {
     
     res.status(201).json(result.rows[0]);
   } catch (error) {
+    console.error('Error creating resource:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.put('/api/resources/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const fields = req.body;
+    
+    const updates = [];
+    const values = [];
+    let index = 1;
+
+    Object.keys(fields).forEach(key => {
+      if (fields[key] !== undefined) {
+        updates.push(`${key} = $${index}`);
+        values.push(fields[key]);
+        index++;
+      }
+    });
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No hay campos para actualizar' });
+    }
+
+    values.push(id);
+    const query = `UPDATE resources SET ${updates.join(', ')} WHERE id = $${index} RETURNING *`;
+    
+    const result = await queryWithRetry(query, values);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Recurso no encontrado' });
+    }
+    
+    res.json(result.rows[0]);
+  } catch (error) {
+    console.error('Error updating resource:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/resources/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await queryWithRetry('DELETE FROM resources WHERE id = $1 RETURNING id', [id]);
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'Recurso no encontrado' });
+    }
+    
+    res.json({ message: 'Recurso eliminado', id: result.rows[0].id });
+  } catch (error) {
+    console.error('Error deleting resource:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -316,6 +389,7 @@ app.get('/api/courses', async (req, res) => {
     const result = await queryWithRetry('SELECT * FROM courses ORDER BY created_at DESC LIMIT 50');
     res.json(result.rows);
   } catch (error) {
+    console.error('Error fetching courses:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -325,7 +399,7 @@ app.post('/api/courses', async (req, res) => {
     const { name, term, instructors, description, zoom_link, youtube_playlist } = req.body;
     
     if (!name || !term || !instructors) {
-      return res.status(400).json({ error: 'Campos requeridos faltantes' });
+      return res.status(400).json({ error: 'Campos requeridos: name, term, instructors' });
     }
     
     const result = await queryWithRetry(
@@ -336,18 +410,21 @@ app.post('/api/courses', async (req, res) => {
     
     res.status(201).json(result.rows[0]);
   } catch (error) {
+    console.error('Error creating course:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 app.get('/api/courses/:courseId/modules', async (req, res) => {
   try {
+    const { courseId } = req.params;
     const result = await queryWithRetry(
       'SELECT * FROM modules WHERE course_id = $1 ORDER BY order_index',
-      [req.params.courseId]
+      [courseId]
     );
     res.json(result.rows);
   } catch (error) {
+    console.error('Error fetching modules:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -355,24 +432,33 @@ app.get('/api/courses/:courseId/modules', async (req, res) => {
 app.post('/api/modules', async (req, res) => {
   try {
     const { course_id, title, order_index = 0 } = req.body;
+    
+    if (!course_id || !title) {
+      return res.status(400).json({ error: 'Campos requeridos: course_id, title' });
+    }
+    
     const result = await queryWithRetry(
       'INSERT INTO modules (course_id, title, order_index) VALUES ($1, $2, $3) RETURNING *',
       [course_id, title, order_index]
     );
+    
     res.status(201).json(result.rows[0]);
   } catch (error) {
+    console.error('Error creating module:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 app.get('/api/modules/:moduleId/items', async (req, res) => {
   try {
+    const { moduleId } = req.params;
     const result = await queryWithRetry(
       'SELECT * FROM items WHERE module_id = $1 ORDER BY order_index',
-      [req.params.moduleId]
+      [moduleId]
     );
     res.json(result.rows);
   } catch (error) {
+    console.error('Error fetching items:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -380,12 +466,19 @@ app.get('/api/modules/:moduleId/items', async (req, res) => {
 app.post('/api/items', async (req, res) => {
   try {
     const { module_id, type, title, content_url, order_index = 0 } = req.body;
+    
+    if (!module_id || !type || !title) {
+      return res.status(400).json({ error: 'Campos requeridos: module_id, type, title' });
+    }
+    
     const result = await queryWithRetry(
       'INSERT INTO items (module_id, type, title, content_url, order_index) VALUES ($1, $2, $3, $4, $5) RETURNING *',
       [module_id, type, title, content_url || null, order_index]
     );
+    
     res.status(201).json(result.rows[0]);
   } catch (error) {
+    console.error('Error creating item:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -395,14 +488,16 @@ app.post('/api/items', async (req, res) => {
 ========================= */
 app.get('/api/library/:userId', async (req, res) => {
   try {
+    const { userId } = req.params;
     const result = await queryWithRetry(
       `SELECT r.* FROM resources r 
        INNER JOIN library l ON r.id = l.resource_id 
        WHERE l.user_id = $1 ORDER BY l.created_at DESC`,
-      [req.params.userId]
+      [userId]
     );
     res.json(result.rows);
   } catch (error) {
+    console.error('Error fetching library:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -410,24 +505,38 @@ app.get('/api/library/:userId', async (req, res) => {
 app.post('/api/library', async (req, res) => {
   try {
     const { user_id, resource_id } = req.body;
+    
+    if (!user_id || !resource_id) {
+      return res.status(400).json({ error: 'Campos requeridos: user_id, resource_id' });
+    }
+    
     const result = await queryWithRetry(
-      'INSERT INTO library (user_id, resource_id) VALUES ($1, $2) ON CONFLICT DO NOTHING RETURNING *',
+      'INSERT INTO library (user_id, resource_id) VALUES ($1, $2) ON CONFLICT (user_id, resource_id) DO NOTHING RETURNING *',
       [user_id, resource_id]
     );
-    res.status(201).json(result.rows[0] || { message: 'Ya existe' });
+    
+    res.status(201).json(result.rows[0] || { message: 'Ya existe en biblioteca' });
   } catch (error) {
+    console.error('Error saving to library:', error);
     res.status(500).json({ error: error.message });
   }
 });
 
 app.delete('/api/library/:userId/:resourceId', async (req, res) => {
   try {
-    await queryWithRetry(
-      'DELETE FROM library WHERE user_id = $1 AND resource_id = $2',
-      [req.params.userId, req.params.resourceId]
+    const { userId, resourceId } = req.params;
+    const result = await queryWithRetry(
+      'DELETE FROM library WHERE user_id = $1 AND resource_id = $2 RETURNING id',
+      [userId, resourceId]
     );
-    res.json({ message: 'Eliminado' });
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: 'No encontrado en biblioteca' });
+    }
+    
+    res.json({ message: 'Eliminado de biblioteca' });
   } catch (error) {
+    console.error('Error removing from library:', error);
     res.status(500).json({ error: error.message });
   }
 });
@@ -436,34 +545,50 @@ app.delete('/api/library/:userId/:resourceId', async (req, res) => {
    ERROR HANDLERS
 ========================= */
 app.use((req, res) => {
-  res.status(404).json({ error: 'Not found', path: req.path });
+  res.status(404).json({ 
+    error: 'Endpoint no encontrado',
+    path: req.path,
+    method: req.method
+  });
 });
 
 app.use((err, req, res, next) => {
   console.error('❌ Error:', err);
-  res.status(500).json({ error: 'Internal error' });
+  res.status(500).json({ 
+    error: 'Error interno',
+    message: isProduction ? 'Internal Server Error' : err.message
+  });
 });
 
 /* =========================
    GRACEFUL SHUTDOWN
 ========================= */
-process.on('SIGTERM', async () => {
-  console.log('⚠️  SIGTERM');
-  await pool.end();
-  process.exit(0);
-});
+const gracefulShutdown = async (signal) => {
+  console.log(`⚠️  ${signal} recibido, cerrando...`);
+  
+  server.close(() => {
+    console.log('🔴 HTTP server cerrado');
+  });
+  
+  try {
+    await pool.end();
+    console.log('🔴 Pool cerrado');
+    process.exit(0);
+  } catch (err) {
+    console.error('Error cerrando pool:', err);
+    process.exit(1);
+  }
+};
 
-process.on('SIGINT', async () => {
-  console.log('⚠️  SIGINT');
-  await pool.end();
-  process.exit(0);
-});
+process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
+process.on('SIGINT', () => gracefulShutdown('SIGINT'));
 
 /* =========================
    START SERVER
 ========================= */
 const server = app.listen(PORT, HOST, async () => {
   console.log('✅ Server:', `${HOST}:${PORT}`);
+  console.log('🌍 Env:', process.env.RAILWAY_ENVIRONMENT_NAME || 'local');
   
   try {
     await queryWithRetry('SELECT 1');
@@ -473,5 +598,11 @@ const server = app.listen(PORT, HOST, async () => {
   }
 });
 
+// Keep-alive para Railway
 server.keepAliveTimeout = 65000;
 server.headersTimeout = 66000;
+
+server.on('error', (err) => {
+  console.error('❌ Server error:', err);
+  process.exit(1);
+});
