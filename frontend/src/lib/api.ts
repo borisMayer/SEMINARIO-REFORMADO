@@ -1,9 +1,11 @@
 // src/lib/api.ts
-// API client para conectar con el backend en Railway
+// API client para conectar con el backend en Railway usando proxy
 
+const USE_PROXY = true; // Cambia a false si no quieres usar el proxy en desarrollo local
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
 
 console.log('🔗 API URL:', API_URL);
+console.log('🔗 Usando proxy:', USE_PROXY);
 
 // ============================================
 // TIPOS (TypeScript)
@@ -55,10 +57,20 @@ export interface Item {
 // ============================================
 async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
-    const error = await response.json().catch(() => ({}));
-    throw new Error(error.error || `HTTP error! status: ${response.status}`);
+    const errorData = await response.json().catch(() => ({}));
+    const errorMessage = errorData.error || `HTTP error! status: ${response.status}`;
+    console.error('API Error:', errorMessage);
+    throw new Error(errorMessage);
   }
   return response.json();
+}
+
+// Función para construir la URL con proxy
+function getUrl(path: string, params?: URLSearchParams): string {
+  if (USE_PROXY) {
+    return `/api/proxy?path=${encodeURIComponent(params ? `${path}?${params}` : path)}`;
+  }
+  return `${API_URL}${path}${params ? `?${params}` : ''}`;
 }
 
 // ============================================
@@ -72,14 +84,14 @@ export async function fetchResources(filters?: {
   tags?: string;
 }): Promise<Resource[]> {
   const params = new URLSearchParams();
-  
   if (filters?.q) params.append('q', filters.q);
   if (filters?.area) params.append('area', filters.area);
   if (filters?.type) params.append('type', filters.type);
   if (filters?.year) params.append('year', filters.year);
   if (filters?.tags) params.append('tags', filters.tags);
-  
-  const url = `${API_URL}/api/resources${params.toString() ? '?' + params.toString() : ''}`;
+
+  const url = getUrl('/api/resources', params.toString() ? params : undefined);
+  console.log('Fetching resources from:', url);
   const response = await fetch(url);
   return handleResponse<Resource[]>(response);
 }
@@ -94,7 +106,9 @@ export async function createResource(data: {
   tags?: string[];
   file_url?: string;
 }): Promise<Resource> {
-  const response = await fetch(`${API_URL}/api/resources`, {
+  const url = getUrl('/api/resources');
+  console.log('Creating resource at:', url);
+  const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -103,7 +117,9 @@ export async function createResource(data: {
 }
 
 export async function updateResource(id: number, data: Partial<Resource>): Promise<Resource> {
-  const response = await fetch(`${API_URL}/api/resources/${id}`, {
+  const url = getUrl(`/api/resources/${id}`);
+  console.log('Updating resource at:', url);
+  const response = await fetch(url, {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -112,7 +128,9 @@ export async function updateResource(id: number, data: Partial<Resource>): Promi
 }
 
 export async function deleteResource(id: number): Promise<{ message: string; id: number }> {
-  const response = await fetch(`${API_URL}/api/resources/${id}`, {
+  const url = getUrl(`/api/resources/${id}`);
+  console.log('Deleting resource at:', url);
+  const response = await fetch(url, {
     method: 'DELETE',
   });
   return handleResponse(response);
@@ -122,7 +140,9 @@ export async function deleteResource(id: number): Promise<{ message: string; id:
 // CURSOS - Funciones exportadas individualmente
 // ============================================
 export async function fetchCourses(): Promise<Course[]> {
-  const response = await fetch(`${API_URL}/api/courses`);
+  const url = getUrl('/api/courses');
+  console.log('Fetching courses from:', url);
+  const response = await fetch(url);
   return handleResponse<Course[]>(response);
 }
 
@@ -134,7 +154,9 @@ export async function createCourse(data: {
   zoom_link?: string;
   youtube_playlist?: string;
 }): Promise<Course> {
-  const response = await fetch(`${API_URL}/api/courses`, {
+  const url = getUrl('/api/courses');
+  console.log('Creating course at:', url);
+  const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -146,7 +168,9 @@ export async function createCourse(data: {
 // MÓDULOS - Funciones exportadas individualmente
 // ============================================
 export async function fetchModules(courseId: number): Promise<Module[]> {
-  const response = await fetch(`${API_URL}/api/courses/${courseId}/modules`);
+  const url = getUrl(`/api/courses/${courseId}/modules`);
+  console.log('Fetching modules from:', url);
+  const response = await fetch(url);
   return handleResponse<Module[]>(response);
 }
 
@@ -155,7 +179,9 @@ export async function createModule(data: {
   title: string;
   order_index?: number;
 }): Promise<Module> {
-  const response = await fetch(`${API_URL}/api/modules`, {
+  const url = getUrl('/api/modules');
+  console.log('Creating module at:', url);
+  const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -167,7 +193,9 @@ export async function createModule(data: {
 // ITEMS - Funciones exportadas individualmente
 // ============================================
 export async function fetchItems(moduleId: number): Promise<Item[]> {
-  const response = await fetch(`${API_URL}/api/modules/${moduleId}/items`);
+  const url = getUrl(`/api/modules/${moduleId}/items`);
+  console.log('Fetching items from:', url);
+  const response = await fetch(url);
   return handleResponse<Item[]>(response);
 }
 
@@ -178,7 +206,9 @@ export async function createItem(data: {
   content_url?: string;
   order_index?: number;
 }): Promise<Item> {
-  const response = await fetch(`${API_URL}/api/items`, {
+  const url = getUrl('/api/items');
+  console.log('Creating item at:', url);
+  const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
@@ -190,12 +220,16 @@ export async function createItem(data: {
 // BIBLIOTECA - Funciones exportadas individualmente
 // ============================================
 export async function fetchLibrary(userId: string): Promise<Resource[]> {
-  const response = await fetch(`${API_URL}/api/library/${userId}`);
+  const url = getUrl(`/api/library/${userId}`);
+  console.log('Fetching library from:', url);
+  const response = await fetch(url);
   return handleResponse<Resource[]>(response);
 }
 
 export async function saveToLibrary(userId: string, resourceId: number): Promise<any> {
-  const response = await fetch(`${API_URL}/api/library`, {
+  const url = getUrl('/api/library');
+  console.log('Saving to library at:', url);
+  const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ user_id: userId, resource_id: resourceId }),
@@ -204,7 +238,9 @@ export async function saveToLibrary(userId: string, resourceId: number): Promise
 }
 
 export async function removeFromLibrary(userId: string, resourceId: number): Promise<{ message: string }> {
-  const response = await fetch(`${API_URL}/api/library/${userId}/${resourceId}`, {
+  const url = getUrl(`/api/library/${userId}/${resourceId}`);
+  console.log('Removing from library at:', url);
+  const response = await fetch(url, {
     method: 'DELETE',
   });
   return handleResponse(response);
@@ -219,7 +255,9 @@ export async function checkHealth(): Promise<{
   timestamp: string;
   memory: string;
 }> {
-  const response = await fetch(`${API_URL}/health`);
+  const url = getUrl('/health');
+  console.log('Checking health at:', url);
+  const response = await fetch(url);
   return handleResponse(response);
 }
 
@@ -229,7 +267,9 @@ export async function checkDBHealth(): Promise<{
   responseTime: string;
   timestamp: string;
 }> {
-  const response = await fetch(`${API_URL}/api/health`);
+  const url = getUrl('/api/health');
+  console.log('Checking DB health at:', url);
+  const response = await fetch(url);
   return handleResponse(response);
 }
 
