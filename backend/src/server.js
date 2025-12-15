@@ -8,7 +8,7 @@ dotenv.config();
 const { Pool } = pg;
 const app = express();
 
-// Railway asigna el PORT automáticamente - NUNCA usar 4000
+// Railway asigna el PORT automáticamente
 const PORT = process.env.PORT || 8080;
 const HOST = '0.0.0.0';
 const isProduction = process.env.NODE_ENV === 'production';
@@ -19,27 +19,27 @@ const isProduction = process.env.NODE_ENV === 'production';
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// 🔥 CORS CORREGIDO - Permite acceso directo y desde Vercel
+// 🔥 Configuración de CORS mejorada
+const allowedOrigins = [
+  'https://seminario-reformado-b4b5-krep29ybq.vercel.app', // Dominio de Vercel
+  'http://localhost:3000', // Desarrollo local
+  'http://localhost:5173', // Desarrollo local (Vite)
+];
+
 app.use(cors({
   origin: (origin, callback) => {
-    const allowed = [
-      'https://seminario-reformado-b4b5-krep29ybq.vercel.app',
-      'http://localhost:3000',
-      'http://localhost:5173',
-    ];
-    
-    // ✅ CLAVE: Permite peticiones sin origen (acceso directo al backend)
+    // Permitir peticiones sin origen (ej: acceso directo, Postman, curl)
     if (!origin) {
       console.log('✅ Petición sin origen (acceso directo) - permitida');
       return callback(null, true);
     }
-    
-    if (allowed.includes(origin)) {
+
+    if (allowedOrigins.includes(origin)) {
       console.log('✅ Origen permitido:', origin);
       return callback(null, true);
     }
-    
-    console.log('⚠️  Origen bloqueado:', origin);
+
+    console.log('⚠️ Origen bloqueado:', origin);
     callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
@@ -47,13 +47,13 @@ app.use(cors({
 }));
 
 /* =========================
-   DATABASE CONFIG CON RECONEXIÓN
+   CONFIGURACIÓN DE LA BASE DE DATOS
 ========================= */
 const requiredEnvVars = ['PGHOST', 'PGUSER', 'PGPASSWORD'];
 const missingVars = requiredEnvVars.filter(v => !process.env[v]);
 
 if (missingVars.length > 0) {
-  console.error('❌ Variables faltantes:', missingVars.join(', '));
+  console.error('❌ Variables de entorno faltantes:', missingVars.join(', '));
   process.exit(1);
 }
 
@@ -63,40 +63,32 @@ const dbConfig = {
   user: process.env.PGUSER,
   password: process.env.PGPASSWORD,
   database: process.env.PGDATABASE || 'neondb',
-  ssl: { rejectUnauthorized: false },
-  max: 5,
-  min: 1,
-  idleTimeoutMillis: 20000,
+  ssl: isProduction ? { rejectUnauthorized: false } : false,
+  max: 10, // Aumentar el número máximo de conexiones en producción
+  idleTimeoutMillis: 30000,
   connectionTimeoutMillis: 10000,
   keepAlive: true,
-  keepAliveInitialDelayMillis: 10000,
 };
 
 let pool = new Pool(dbConfig);
 let isReconnecting = false;
 
-console.log('🔍 DB:', {
-  host: dbConfig.host.substring(0, 25) + '...',
-  port: dbConfig.port,
-  database: dbConfig.database,
-});
-
-// Configurar listeners del pool
+// Configurar listeners para el pool de conexiones
 function setupPoolListeners() {
   pool.on('error', async (err) => {
-    console.error('❌ Pool error:', err.message);
-    
+    console.error('❌ Error en el pool de conexiones:', err.message);
+
     if (!isReconnecting && err.message.includes('terminated')) {
       isReconnecting = true;
-      console.log('🔄 Iniciando reconexión...');
-      
+      console.log('🔄 Reconectando a la base de datos...');
+
       try {
         await pool.end();
         pool = new Pool(dbConfig);
         setupPoolListeners();
-        console.log('✅ Pool recreado');
+        console.log('✅ Pool recreado con éxito');
       } catch (reconnectErr) {
-        console.error('❌ Error recreando pool:', reconnectErr.message);
+        console.error('❌ Error al recrear el pool:', reconnectErr.message);
       } finally {
         isReconnecting = false;
       }
@@ -104,11 +96,11 @@ function setupPoolListeners() {
   });
 
   pool.on('connect', () => {
-    console.log('🔌 Cliente conectado');
+    console.log('🔌 Nuevo cliente conectado a la base de datos');
   });
 
   pool.on('remove', () => {
-    console.log('🔌 Cliente removido');
+    console.log('🔌 Cliente desconectado');
   });
 }
 
@@ -116,32 +108,31 @@ setupPoolListeners();
 
 // Función para asegurar que el pool esté disponible
 async function ensurePool() {
-  if (!pool || pool.ending || pool.ended) {
-    console.log('🔄 Recreando pool...');
+  if (!pool || pool.ending) {
+    console.log('🔄 Recreando pool de conexiones...');
     pool = new Pool(dbConfig);
     setupPoolListeners();
   }
   return pool;
 }
 
-// Wrapper para queries con retry
+// Wrapper para consultas con reintentos
 async function queryWithRetry(text, params, retries = 3) {
   for (let i = 0; i < retries; i++) {
     try {
       const currentPool = await ensurePool();
       return await currentPool.query(text, params);
     } catch (error) {
-      console.error(`Query intento ${i + 1} falló:`, error.message);
-      
+      console.error(`❌ Intento ${i + 1} fallido:`, error.message);
+
       if (i === retries - 1) throw error;
-      
-      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+      await new Promise(resolve => setTimeout(resolve, 2000 * (i + 1))); // Espera exponencial
     }
   }
 }
 
 /* =========================
-   INICIALIZAR TABLAS
+   INICIALIZACIÓN DE TABLAS
 ========================= */
 async function initializeTables() {
   try {
@@ -205,42 +196,27 @@ async function initializeTables() {
       )
     `);
 
-    console.log('✅ Tablas creadas');
+    console.log('✅ Tablas inicializadas correctamente');
   } catch (error) {
-    console.error('❌ Error en tablas:', error.message);
+    console.error('❌ Error al inicializar tablas:', error.message);
   }
 }
 
-// Inicializar tablas en background (no bloquea)
-initializeTables().catch(err => console.error('Init error:', err));
+// Inicializar tablas al iniciar el servidor
+initializeTables().catch(err => console.error('Error en inicialización:', err));
 
 /* =========================
-   HEALTH CHECKS - PRIMERAS RUTAS
+   ENDPOINTS DE SALUD
 ========================= */
-
-// 🔥 HEALTHCHECK ESPECIAL PARA RAILWAY - DEBE SER LA PRIMERA RUTA
 app.get('/_health', (req, res) => {
   res.status(200).send('OK');
 });
 
-app.get('/healthz', (req, res) => {
-  res.status(200).send('OK');
-});
-
 app.get('/health', (req, res) => {
-  res.status(200).json({ 
-    ok: true, 
-    uptime: Math.floor(process.uptime()),
-    timestamp: new Date().toISOString(),
-    memory: Math.round(process.memoryUsage().heapUsed / 1024 / 1024) + 'MB'
-  });
-});
-
-app.get('/', (req, res) => {
   res.status(200).json({
     status: 'online',
     message: '🚀 Seminario Reformado API',
-    version: '1.0.0',
+    version: '1.0.1',
     timestamp: new Date().toISOString(),
     uptime: Math.floor(process.uptime()),
     endpoints: {
@@ -258,17 +234,17 @@ app.get('/api/health', async (req, res) => {
     const start = Date.now();
     const result = await queryWithRetry('SELECT NOW() as time');
     const duration = Date.now() - start;
-    
-    res.status(200).json({ 
-      ok: true, 
+
+    res.status(200).json({
+      ok: true,
       database: 'connected',
       responseTime: `${duration}ms`,
       timestamp: result.rows[0].time,
     });
   } catch (error) {
-    console.error('DB health check error:', error.message);
-    res.status(500).json({ 
-      ok: false, 
+    console.error('❌ Error en health check de la base de datos:', error.message);
+    res.status(500).json({
+      ok: false,
       database: 'error',
       message: error.message
     });
@@ -276,11 +252,10 @@ app.get('/api/health', async (req, res) => {
 });
 
 /* =========================
-   RECURSOS
+   ENDPOINTS DE RECURSOS
 ========================= */
 app.get('/api/resources', async (req, res) => {
   try {
-    console.log('📥 GET /api/resources');
     const { q, area, type, year, tags } = req.query;
     let query = 'SELECT * FROM resources WHERE 1=1';
     const params = [];
@@ -314,311 +289,162 @@ app.get('/api/resources', async (req, res) => {
 
     query += ' ORDER BY created_at DESC LIMIT 100';
     const result = await queryWithRetry(query, params);
-    console.log(`✅ ${result.rows.length} recursos encontrados`);
     res.json(result.rows);
   } catch (error) {
-    console.error('❌ Error fetching resources:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error al obtener recursos:', error);
+    res.status(500).json({ error: 'Error interno al obtener recursos' });
   }
 });
 
 app.post('/api/resources', async (req, res) => {
   try {
     const { title, authors, area, type, year, abstract, tags, file_url } = req.body;
-    
+
     if (!title || !authors || !area || !type || !year) {
-      return res.status(400).json({ error: 'Campos requeridos: title, authors, area, type, year' });
+      return res.status(400).json({ error: 'Faltan campos requeridos' });
     }
-    
+
     const result = await queryWithRetry(
-      `INSERT INTO resources (title, authors, area, type, year, abstract, tags, file_url) 
+      `INSERT INTO resources (title, authors, area, type, year, abstract, tags, file_url)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
       [title, authors, area, type, year, abstract || '', tags || [], file_url || null]
     );
-    
+
     res.status(201).json(result.rows[0]);
   } catch (error) {
-    console.error('Error creating resource:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.put('/api/resources/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const fields = req.body;
-    
-    const updates = [];
-    const values = [];
-    let index = 1;
-
-    Object.keys(fields).forEach(key => {
-      if (fields[key] !== undefined) {
-        updates.push(`${key} = $${index}`);
-        values.push(fields[key]);
-        index++;
-      }
-    });
-
-    if (updates.length === 0) {
-      return res.status(400).json({ error: 'No hay campos para actualizar' });
-    }
-
-    values.push(id);
-    const query = `UPDATE resources SET ${updates.join(', ')} WHERE id = $${index} RETURNING *`;
-    
-    const result = await queryWithRetry(query, values);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Recurso no encontrado' });
-    }
-    
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error updating resource:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.delete('/api/resources/:id', async (req, res) => {
-  try {
-    const { id } = req.params;
-    const result = await queryWithRetry('DELETE FROM resources WHERE id = $1 RETURNING id', [id]);
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Recurso no encontrado' });
-    }
-    
-    res.json({ message: 'Recurso eliminado', id: result.rows[0].id });
-  } catch (error) {
-    console.error('Error deleting resource:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error al crear recurso:', error);
+    res.status(500).json({ error: 'Error interno al crear recurso' });
   }
 });
 
 /* =========================
-   CURSOS
+   ENDPOINTS DE CURSOS
 ========================= */
 app.get('/api/courses', async (req, res) => {
   try {
     const result = await queryWithRetry('SELECT * FROM courses ORDER BY created_at DESC LIMIT 50');
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching courses:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error al obtener cursos:', error);
+    res.status(500).json({ error: 'Error interno al obtener cursos' });
   }
 });
 
 app.post('/api/courses', async (req, res) => {
   try {
     const { name, term, instructors, description, zoom_link, youtube_playlist } = req.body;
-    
+
     if (!name || !term || !instructors) {
-      return res.status(400).json({ error: 'Campos requeridos: name, term, instructors' });
+      return res.status(400).json({ error: 'Faltan campos requeridos' });
     }
-    
+
     const result = await queryWithRetry(
-      `INSERT INTO courses (name, term, instructors, description, zoom_link, youtube_playlist) 
+      `INSERT INTO courses (name, term, instructors, description, zoom_link, youtube_playlist)
        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
       [name, term, instructors, description || '', zoom_link || null, youtube_playlist || null]
     );
-    
+
     res.status(201).json(result.rows[0]);
   } catch (error) {
-    console.error('Error creating course:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/courses/:courseId/modules', async (req, res) => {
-  try {
-    const { courseId } = req.params;
-    const result = await queryWithRetry(
-      'SELECT * FROM modules WHERE course_id = $1 ORDER BY order_index',
-      [courseId]
-    );
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching modules:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/modules', async (req, res) => {
-  try {
-    const { course_id, title, order_index = 0 } = req.body;
-    
-    if (!course_id || !title) {
-      return res.status(400).json({ error: 'Campos requeridos: course_id, title' });
-    }
-    
-    const result = await queryWithRetry(
-      'INSERT INTO modules (course_id, title, order_index) VALUES ($1, $2, $3) RETURNING *',
-      [course_id, title, order_index]
-    );
-    
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error('Error creating module:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.get('/api/modules/:moduleId/items', async (req, res) => {
-  try {
-    const { moduleId } = req.params;
-    const result = await queryWithRetry(
-      'SELECT * FROM items WHERE module_id = $1 ORDER BY order_index',
-      [moduleId]
-    );
-    res.json(result.rows);
-  } catch (error) {
-    console.error('Error fetching items:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
-
-app.post('/api/items', async (req, res) => {
-  try {
-    const { module_id, type, title, content_url, order_index = 0 } = req.body;
-    
-    if (!module_id || !type || !title) {
-      return res.status(400).json({ error: 'Campos requeridos: module_id, type, title' });
-    }
-    
-    const result = await queryWithRetry(
-      'INSERT INTO items (module_id, type, title, content_url, order_index) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [module_id, type, title, content_url || null, order_index]
-    );
-    
-    res.status(201).json(result.rows[0]);
-  } catch (error) {
-    console.error('Error creating item:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error al crear curso:', error);
+    res.status(500).json({ error: 'Error interno al crear curso' });
   }
 });
 
 /* =========================
-   BIBLIOTECA
+   ENDPOINTS DE BIBLIOTECA
 ========================= */
 app.get('/api/library/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
     const result = await queryWithRetry(
-      `SELECT r.* FROM resources r 
-       INNER JOIN library l ON r.id = l.resource_id 
+      `SELECT r.* FROM resources r
+       INNER JOIN library l ON r.id = l.resource_id
        WHERE l.user_id = $1 ORDER BY l.created_at DESC`,
       [userId]
     );
     res.json(result.rows);
   } catch (error) {
-    console.error('Error fetching library:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error al obtener biblioteca:', error);
+    res.status(500).json({ error: 'Error interno al obtener biblioteca' });
   }
 });
 
 app.post('/api/library', async (req, res) => {
   try {
     const { user_id, resource_id } = req.body;
-    
+
     if (!user_id || !resource_id) {
-      return res.status(400).json({ error: 'Campos requeridos: user_id, resource_id' });
+      return res.status(400).json({ error: 'Faltan campos requeridos' });
     }
-    
+
     const result = await queryWithRetry(
       'INSERT INTO library (user_id, resource_id) VALUES ($1, $2) ON CONFLICT (user_id, resource_id) DO NOTHING RETURNING *',
       [user_id, resource_id]
     );
-    
-    res.status(201).json(result.rows[0] || { message: 'Ya existe en biblioteca' });
-  } catch (error) {
-    console.error('Error saving to library:', error);
-    res.status(500).json({ error: error.message });
-  }
-});
 
-app.delete('/api/library/:userId/:resourceId', async (req, res) => {
-  try {
-    const { userId, resourceId } = req.params;
-    const result = await queryWithRetry(
-      'DELETE FROM library WHERE user_id = $1 AND resource_id = $2 RETURNING id',
-      [userId, resourceId]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'No encontrado en biblioteca' });
-    }
-    
-    res.json({ message: 'Eliminado de biblioteca' });
+    res.status(201).json(result.rows[0] || { message: 'El recurso ya está en la biblioteca' });
   } catch (error) {
-    console.error('Error removing from library:', error);
-    res.status(500).json({ error: error.message });
+    console.error('❌ Error al agregar a biblioteca:', error);
+    res.status(500).json({ error: 'Error interno al agregar a biblioteca' });
   }
 });
 
 /* =========================
-   ERROR HANDLERS
+   MANEJO DE ERRORES GLOBALES
 ========================= */
 app.use((req, res) => {
-  console.log('❌ 404:', req.method, req.path);
-  res.status(404).json({ 
-    error: 'Endpoint no encontrado',
+  console.log('❌ Ruta no encontrada:', req.method, req.path);
+  res.status(404).json({
+    error: 'Ruta no encontrada',
     path: req.path,
     method: req.method
   });
 });
 
 app.use((err, req, res, next) => {
-  console.error('❌ Error:', err);
-  res.status(500).json({ 
-    error: 'Error interno',
-    message: isProduction ? 'Internal Server Error' : err.message
+  console.error('❌ Error no manejado:', err);
+  res.status(500).json({
+    error: 'Error interno del servidor',
+    message: isProduction ? undefined : err.message
   });
 });
 
 /* =========================
-   GRACEFUL SHUTDOWN
+   INICIO DEL SERVIDOR
 ========================= */
-const gracefulShutdown = async (signal) => {
-  console.log(`⚠️  ${signal} recibido, cerrando...`);
-  
-  server.close(() => {
-    console.log('🔴 HTTP server cerrado');
-  });
-  
+const server = app.listen(PORT, HOST, async () => {
+  console.log(`✅ Servidor iniciado en ${HOST}:${PORT}`);
+  console.log(`🌍 Entorno: ${process.env.RAILWAY_ENVIRONMENT_NAME || process.env.NODE_ENV || 'local'}`);
+
   try {
-    await pool.end();
-    console.log('🔴 Pool cerrado');
-    process.exit(0);
+    await queryWithRetry('SELECT 1');
+    console.log('✅ Conexión a la base de datos establecida');
   } catch (err) {
-    console.error('Error cerrando pool:', err);
-    process.exit(1);
+    console.error('❌ Error al conectar a la base de datos:', err.message);
   }
+});
+
+// Configuración para evitar timeouts en Railway
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
+
+// Manejo de apagado graceful
+const gracefulShutdown = async (signal) => {
+  console.log(`⚠️ ${signal} recibido. Cerrando servidor...`);
+
+  server.close(async () => {
+    console.log('🔴 Servidor HTTP cerrado');
+    try {
+      await pool.end();
+      console.log('🔴 Pool de conexiones cerrado');
+      process.exit(0);
+    } catch (err) {
+      console.error('❌ Error al cerrar el pool:', err);
+      process.exit(1);
+    }
+  });
 };
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));
 process.on('SIGINT', () => gracefulShutdown('SIGINT'));
-
-/* =========================
-   START SERVER
-========================= */
-const server = app.listen(PORT, HOST, async () => {
-  console.log('✅ Server:', `${HOST}:${PORT}`);
-  console.log('🌍 Env:', process.env.RAILWAY_ENVIRONMENT_NAME || process.env.NODE_ENV || 'local');
-  
-  try {
-    await queryWithRetry('SELECT 1');
-    console.log('✅ DB OK');
-  } catch (err) {
-    console.error('❌ DB:', err.message);
-  }
-});
-
-// Keep-alive para Railway
-server.keepAliveTimeout = 65000;
-server.headersTimeout = 66000;
-
-server.on('error', (err) => {
-  console.error('❌ Server error:', err);
-  process.exit(1);
-});
