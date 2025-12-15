@@ -8,5 +8,6 @@ cmd = ["npm", "install"]
 [phases.start]
 cmd = ["npm", "start"]
 
+# Railway asigna PORT automáticamente
 [variables]
-PORT = "4000"
+NODE_ENV = "production"
