@@ -25,19 +25,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Textarea } from '@/components/ui/textarea';
-import { 
-  fetchResources, 
-  createResource,
-  fetchCourses, 
-  createCourse,
-  fetchModules, 
-  createModule,
-  fetchItems,
-  createItem,
-  fetchLibrary,
-  saveToLibrary,
-  removeFromLibrary
-} from '@/lib/api';
+import * as api from '@/lib/api';
 
 // Usuario temporal (reemplazar con autenticación real)
 const TEMP_USER_ID = 'user_1';
@@ -66,21 +54,21 @@ export default function RepositorioLMS() {
     if (tipo) params.type = tipo;
     if (anio) params.year = anio;
     if (etiquetas.length) params.tags = etiquetas.join(',');
-    fetchResources(params).then(setResultados).catch(console.error);
+    api.fetchResources(params).then(setResultados).catch(console.error);
   }, [busqueda, area, tipo, anio, etiquetas]);
 
   // Cargar biblioteca
   useEffect(() => {
     if (tab === 'mi-biblioteca') {
-      fetchLibrary(TEMP_USER_ID).then(setLibrary).catch(console.error);
+      api.fetchLibrary(TEMP_USER_ID).then(setLibrary).catch(console.error);
     }
   }, [tab]);
 
   const handleSaveToLibrary = async (resourceId: number) => {
     try {
-      await saveToLibrary(TEMP_USER_ID, resourceId);
+      await api.saveToLibrary(TEMP_USER_ID, resourceId);
       alert('¡Guardado en tu biblioteca!');
-      fetchLibrary(TEMP_USER_ID).then(setLibrary);
+      api.fetchLibrary(TEMP_USER_ID).then(setLibrary);
     } catch (error) {
       alert('Error al guardar');
     }
@@ -88,9 +76,9 @@ export default function RepositorioLMS() {
 
   const handleRemoveFromLibrary = async (resourceId: number) => {
     try {
-      await removeFromLibrary(TEMP_USER_ID, resourceId);
+      await api.removeFromLibrary(TEMP_USER_ID, resourceId);
       alert('Eliminado de tu biblioteca');
-      fetchLibrary(TEMP_USER_ID).then(setLibrary);
+      api.fetchLibrary(TEMP_USER_ID).then(setLibrary);
     } catch (error) {
       alert('Error al eliminar');
     }
@@ -116,7 +104,7 @@ export default function RepositorioLMS() {
                 onClose={() => setOpenUpload(false)} 
                 onSuccess={() => {
                   const params: Record<string, string> = {};
-                  fetchResources(params).then(setResultados);
+                  api.fetchResources(params).then(setResultados);
                 }}
               />
             </Dialog>
@@ -361,9 +349,6 @@ export default function RepositorioLMS() {
   );
 }
 
-// ============================================
-// COMPONENTE: Diálogo Subir Recurso
-// ============================================
 function UploadDialog({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [titulo, setTitulo] = useState('');
   const [autores, setAutores] = useState('');
@@ -380,7 +365,7 @@ function UploadDialog({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      await createResource({
+      await api.createResource({
         title: titulo,
         authors: autores.split(',').map(a => a.trim()),
         area,
@@ -395,7 +380,7 @@ function UploadDialog({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
       onSuccess();
     } catch (error) {
       console.error(error);
-      alert('Error al crear el recurso. Verifica que el backend esté corriendo.');
+      alert('Error al crear el recurso.');
     } finally {
       setLoading(false);
     }
@@ -407,79 +392,38 @@ function UploadDialog({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
         <DialogTitle>Subir nuevo recurso</DialogTitle>
       </DialogHeader>
       <div className="space-y-4">
-        <Input 
-          placeholder="Título *" 
-          value={titulo} 
-          onChange={(e)=>setTitulo(e.target.value)} 
-        />
-        <Input 
-          placeholder="Autores (separados por coma) *" 
-          value={autores} 
-          onChange={(e)=>setAutores(e.target.value)} 
-        />
+        <Input placeholder="Título *" value={titulo} onChange={(e)=>setTitulo(e.target.value)} />
+        <Input placeholder="Autores (separados por coma) *" value={autores} onChange={(e)=>setAutores(e.target.value)} />
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <Select value={area} onValueChange={setArea}>
-            <SelectTrigger>
-              <SelectValue placeholder="Área *" />
-            </SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Área *" /></SelectTrigger>
             <SelectContent>
-              {['Biblia','Pastoral','Historia','Ética'].map(a => (
-                <SelectItem key={a} value={a}>{a}</SelectItem>
-              ))}
+              {['Biblia','Pastoral','Historia','Ética'].map(a => <SelectItem key={a} value={a}>{a}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={tipo} onValueChange={setTipo}>
-            <SelectTrigger>
-              <SelectValue placeholder="Tipo *" />
-            </SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Tipo *" /></SelectTrigger>
             <SelectContent>
-              {['Artículo','Libro','Tesis','Recurso didáctico'].map(t => (
-                <SelectItem key={t} value={t}>{t}</SelectItem>
-              ))}
+              {['Artículo','Libro','Tesis','Recurso didáctico'].map(t => <SelectItem key={t} value={t}>{t}</SelectItem>)}
             </SelectContent>
           </Select>
           <Select value={anio} onValueChange={setAnio}>
-            <SelectTrigger>
-              <SelectValue placeholder="Año *" />
-            </SelectTrigger>
+            <SelectTrigger><SelectValue placeholder="Año *" /></SelectTrigger>
             <SelectContent>
-              {[2025,2024,2023,2022,2021].map(y => (
-                <SelectItem key={y} value={String(y)}>{y}</SelectItem>
-              ))}
+              {[2025,2024,2023,2022,2021].map(y => <SelectItem key={y} value={String(y)}>{y}</SelectItem>)}
             </SelectContent>
           </Select>
         </div>
-        <Textarea 
-          placeholder="Resumen / Abstract" 
-          value={resumen} 
-          onChange={(e)=>setResumen(e.target.value)} 
-        />
-        <Input 
-          placeholder="Etiquetas (separadas por coma)" 
-          value={etiquetas} 
-          onChange={(e)=>setEtiquetas(e.target.value)} 
-        />
+        <Textarea placeholder="Resumen / Abstract" value={resumen} onChange={(e)=>setResumen(e.target.value)} />
+        <Input placeholder="Etiquetas (separadas por coma)" value={etiquetas} onChange={(e)=>setEtiquetas(e.target.value)} />
         <div className="flex items-center gap-2 text-sm">
-          <Checkbox 
-            id="lic" 
-            checked={aceptaLicencia} 
-            onCheckedChange={(v)=>setAceptaLicencia(Boolean(v))} 
-          />
-          <label htmlFor="lic" className="cursor-pointer">
-            Confirmo derechos y licencia (p.ej., CC BY-NC) *
-          </label>
+          <Checkbox id="lic" checked={aceptaLicencia} onCheckedChange={(v)=>setAceptaLicencia(Boolean(v))} />
+          <label htmlFor="lic" className="cursor-pointer">Confirmo derechos y licencia (p.ej., CC BY-NC) *</label>
         </div>
       </div>
       <DialogFooter>
-        <Button variant="outline" size="sm" onClick={onClose} disabled={loading}>
-          Cancelar
-        </Button>
-        <Button 
-          disabled={!canSubmit || loading} 
-          size="sm" 
-          className="bg-indigo-600 hover:bg-indigo-700"
-          onClick={handleSubmit}
-        >
+        <Button variant="outline" size="sm" onClick={onClose} disabled={loading}>Cancelar</Button>
+        <Button disabled={!canSubmit || loading} size="sm" className="bg-indigo-600 hover:bg-indigo-700" onClick={handleSubmit}>
           {loading ? 'Guardando...' : 'Guardar'}
         </Button>
       </DialogFooter>
@@ -487,38 +431,22 @@ function UploadDialog({ onClose, onSuccess }: { onClose: () => void; onSuccess: 
   );
 }
 
-// ============================================
-// COMPONENTE: Sección de Cursos
-// ============================================
 function CoursesSection() {
   const [courses, setCourses] = useState<any[]>([]);
   const [openCreate, setOpenCreate] = useState(false);
 
-  useEffect(() => {
-    loadCourses();
-  }, []);
-
-  const loadCourses = () => {
-    fetchCourses().then(setCourses).catch(console.error);
-  };
+  useEffect(() => { loadCourses(); }, []);
+  const loadCourses = () => { api.fetchCourses().then(setCourses).catch(console.error); };
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold">Aulas Virtuales</h2>
         <Dialog open={openCreate} onOpenChange={setOpenCreate}>
-          <DialogTrigger>
-            <Button className="bg-indigo-600 hover:bg-indigo-700">
-              <FiPlus className="mr-2" /> Crear Aula
-            </Button>
-          </DialogTrigger>
-          <CreateCourseDialog 
-            onClose={() => setOpenCreate(false)} 
-            onSuccess={loadCourses}
-          />
+          <DialogTrigger><Button className="bg-indigo-600 hover:bg-indigo-700"><FiPlus className="mr-2" /> Crear Aula</Button></DialogTrigger>
+          <CreateCourseDialog onClose={() => setOpenCreate(false)} onSuccess={loadCourses} />
         </Dialog>
       </div>
-
       {courses.length === 0 ? (
         <Card className="rounded-2xl">
           <CardContent className="py-12 text-center text-slate-600">
@@ -529,27 +457,22 @@ function CoursesSection() {
         </Card>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {courses.map((c) => (
-            <CourseCard key={c.id} course={c} onUpdate={loadCourses} />
-          ))}
+          {courses.map((c) => <CourseCard key={c.id} course={c} onUpdate={loadCourses} />)}
         </div>
       )}
     </div>
   );
 }
 
-// ============================================
-// COMPONENTE: Card de Curso
-// ============================================
 function CourseCard({ course, onUpdate }: { course: any; onUpdate: () => void }) {
   const [modules, setModules] = useState<any[]>([]);
   const [itemsByModule, setItemsByModule] = useState<Record<string, any[]>>({});
 
   useEffect(() => {
-    fetchModules(course.id).then(mods => {
+    api.fetchModules(course.id).then(mods => {
       setModules(mods);
       mods.forEach((m: any) => {
-        fetchItems(m.id).then(items => {
+        api.fetchItems(m.id).then(items => {
           setItemsByModule(prev => ({ ...prev, [m.id]: items }));
         });
       });
@@ -560,37 +483,12 @@ function CourseCard({ course, onUpdate }: { course: any; onUpdate: () => void })
     <Card className="rounded-2xl hover:shadow-md transition">
       <CardHeader>
         <CardTitle className="text-base">{course.name}</CardTitle>
-        <p className="text-sm text-slate-600">
-          {course.term} • {(course.instructors||[]).join(', ')}
-        </p>
+        <p className="text-sm text-slate-600">{course.term} • {(course.instructors||[]).join(', ')}</p>
       </CardHeader>
       <CardContent className="space-y-3">
-        {course.description && (
-          <p className="text-sm text-slate-600">{course.description}</p>
-        )}
-        
-        {course.zoom_link && (
-          <a 
-            href={course.zoom_link} 
-            target="_blank" 
-            rel="noreferrer"
-            className="flex items-center gap-2 text-sm text-indigo-600 hover:underline"
-          >
-            <FiVideo /> Unirse a clase en vivo
-          </a>
-        )}
-        
-        {course.youtube_playlist && (
-          <a 
-            href={course.youtube_playlist} 
-            target="_blank" 
-            rel="noreferrer"
-            className="flex items-center gap-2 text-sm text-red-600 hover:underline"
-          >
-            <FiYoutube /> Ver grabaciones
-          </a>
-        )}
-
+        {course.description && <p className="text-sm text-slate-600">{course.description}</p>}
+        {course.zoom_link && <a href={course.zoom_link} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-indigo-600 hover:underline"><FiVideo /> Unirse a clase en vivo</a>}
+        {course.youtube_playlist && <a href={course.youtube_playlist} target="_blank" rel="noreferrer" className="flex items-center gap-2 text-sm text-red-600 hover:underline"><FiYoutube /> Ver grabaciones</a>}
         {modules.length > 0 && (
           <div className="space-y-2 pt-2 border-t">
             {modules.map((m) => (
@@ -614,27 +512,14 @@ function CourseCard({ course, onUpdate }: { course: any; onUpdate: () => void })
   );
 }
 
-// ============================================
-// COMPONENTE: Diálogo Crear Curso
-// ============================================
 function CreateCourseDialog({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) {
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    term: '',
-    instructors: '',
-    description: '',
-    zoom_link: '',
-    youtube_playlist: '',
-  });
+  const [formData, setFormData] = useState({ name: '', term: '', instructors: '', description: '', zoom_link: '', youtube_playlist: '' });
 
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      await createCourse({
-        ...formData,
-        instructors: formData.instructors.split(',').map(i => i.trim()),
-      });
+      await api.createCourse({ ...formData, instructors: formData.instructors.split(',').map(i => i.trim()) });
       alert('¡Aula creada exitosamente!');
       onClose();
       onSuccess();
@@ -649,71 +534,31 @@ function CreateCourseDialog({ onClose, onSuccess }: { onClose: () => void; onSuc
 
   return (
     <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle>Crear Nueva Aula Virtual</DialogTitle>
-      </DialogHeader>
+      <DialogHeader><DialogTitle>Crear Nueva Aula Virtual</DialogTitle></DialogHeader>
       <div className="space-y-4">
-        <Input
-          placeholder="Nombre del Curso *"
-          value={formData.name}
-          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-        />
-        
+        <Input placeholder="Nombre del Curso *" value={formData.name} onChange={(e) => setFormData({ ...formData, name: e.target.value })} />
         <div className="grid grid-cols-2 gap-4">
-          <Input
-            placeholder="Período (ej: 2025-1) *"
-            value={formData.term}
-            onChange={(e) => setFormData({ ...formData, term: e.target.value })}
-          />
-          <Input
-            placeholder="Instructores (separados por coma) *"
-            value={formData.instructors}
-            onChange={(e) => setFormData({ ...formData, instructors: e.target.value })}
-          />
+          <Input placeholder="Período (ej: 2025-1) *" value={formData.term} onChange={(e) => setFormData({ ...formData, term: e.target.value })} />
+          <Input placeholder="Instructores (separados por coma) *" value={formData.instructors} onChange={(e) => setFormData({ ...formData, instructors: e.target.value })} />
         </div>
-
-        <Textarea
-          placeholder="Descripción del curso"
-          value={formData.description}
-          onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-        />
-
+        <Textarea placeholder="Descripción del curso" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} />
         <div className="space-y-3 border-t pt-4">
           <h4 className="text-sm font-medium">Configuración de Clases</h4>
           <div className="space-y-3">
             <div>
-              <label className="text-sm font-medium flex items-center gap-2 mb-1">
-                <FiVideo className="text-indigo-600" /> Link de Zoom
-              </label>
-              <Input
-                placeholder="https://zoom.us/j/..."
-                value={formData.zoom_link}
-                onChange={(e) => setFormData({ ...formData, zoom_link: e.target.value })}
-              />
+              <label className="text-sm font-medium flex items-center gap-2 mb-1"><FiVideo className="text-indigo-600" /> Link de Zoom</label>
+              <Input placeholder="https://zoom.us/j/..." value={formData.zoom_link} onChange={(e) => setFormData({ ...formData, zoom_link: e.target.value })} />
             </div>
-
             <div>
-              <label className="text-sm font-medium flex items-center gap-2 mb-1">
-                <FiYoutube className="text-red-600" /> Playlist de YouTube
-              </label>
-              <Input
-                placeholder="https://youtube.com/playlist?list=..."
-                value={formData.youtube_playlist}
-                onChange={(e) => setFormData({ ...formData, youtube_playlist: e.target.value })}
-              />
+              <label className="text-sm font-medium flex items-center gap-2 mb-1"><FiYoutube className="text-red-600" /> Playlist de YouTube</label>
+              <Input placeholder="https://youtube.com/playlist?list=..." value={formData.youtube_playlist} onChange={(e) => setFormData({ ...formData, youtube_playlist: e.target.value })} />
             </div>
           </div>
         </div>
       </div>
       <DialogFooter>
-        <Button variant="outline" onClick={onClose} disabled={loading}>
-          Cancelar
-        </Button>
-        <Button
-          disabled={!canSubmit || loading}
-          onClick={handleSubmit}
-          className="bg-indigo-600 hover:bg-indigo-700"
-        >
+        <Button variant="outline" onClick={onClose} disabled={loading}>Cancelar</Button>
+        <Button disabled={!canSubmit || loading} onClick={handleSubmit} className="bg-indigo-600 hover:bg-indigo-700">
           {loading ? 'Creando...' : 'Crear Aula'}
         </Button>
       </DialogFooter>
