@@ -8,7 +8,8 @@ dotenv.config();
 const { Pool } = pg;
 const app = express();
 
-const PORT = process.env.PORT || 4000;
+// Railway asigna el PORT automáticamente - NUNCA usar 4000
+const PORT = process.env.PORT || 8080;
 const HOST = '0.0.0.0';
 const isProduction = process.env.NODE_ENV === 'production';
 
