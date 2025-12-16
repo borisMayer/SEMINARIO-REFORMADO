@@ -1,8 +1,8 @@
 // src/lib/api.ts
-// API client para conectar con el backend en Railway usando proxy
+// API client para conectar con el backend en Railway - SIN PROXY
 
-const USE_PROXY = true; // Cambia a false si no quieres usar el proxy en desarrollo local
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+const USE_PROXY = false; // ✅ Desactivado - usar Railway directamente
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://seminario-reformado-production.up.railway.app';
 
 console.log('🔗 API URL:', API_URL);
 console.log('🔗 Usando proxy:', USE_PROXY);
@@ -65,7 +65,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json();
 }
 
-// Función para construir la URL con proxy
+// Función para construir la URL - SIN PROXY
 function getUrl(path: string, params?: URLSearchParams): string {
   if (USE_PROXY) {
     return `/api/proxy?path=${encodeURIComponent(params ? `${path}?${params}` : path)}`;
