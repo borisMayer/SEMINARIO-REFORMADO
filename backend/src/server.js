@@ -19,7 +19,7 @@ const isProduction = process.env.NODE_ENV === 'production';
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Configuración de CORS mejorada para Vercel
+// Configuración de CORS mejorada para permitir solicitudes desde Vercel
 const allowedOrigins = [
   'https://seminario-reformado-b4b5.vercel.app',
   /^https:\/\/seminario-reformado-b4b5(-[a-z0-9]+)?\.vercel\.app$/, // Todos los subdominios de Vercel
@@ -60,9 +60,9 @@ app.use(
       console.log('⚠️ Origen bloqueado:', origin);
       callback(new Error('Not allowed by CORS'));
     },
-    credentials: true,
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
   })
 );
 
