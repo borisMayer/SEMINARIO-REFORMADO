@@ -19,12 +19,13 @@ const isProduction = process.env.NODE_ENV === 'production';
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// 🔥 Configuración de CORS mejorada y corregida
+// 🔥 Configuración de CORS mejorada - permite todos los subdominios de Vercel
 const allowedOrigins = [
-  'https://seminario-reformado-b4b5.vercel.app', // ✅ Dominio de Vercel CORREGIDO
-  'http://localhost:3000', // Desarrollo local Next.js
-  'http://localhost:5173', // Desarrollo local Vite
-  'http://127.0.0.1:3000', // Desarrollo local alternativo
+  'https://seminario-reformado-b4b5.vercel.app',
+  /^https:\/\/seminario-reformado-b4b5-.*\.vercel\.app$/, // Todos los subdominios de Vercel
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:3000',
 ];
 
 app.use(cors({
@@ -41,8 +42,16 @@ app.use(cors({
       return callback(null, true);
     }
 
-    // En producción, verificar lista de orígenes permitidos
-    if (allowedOrigins.includes(origin)) {
+    // Verificar si el origen está en la lista O coincide con el patrón regex
+    const isAllowed = allowedOrigins.some(allowedOrigin => {
+      if (typeof allowedOrigin === 'string') {
+        return allowedOrigin === origin;
+      }
+      // Si es regex, probar el patrón
+      return allowedOrigin.test(origin);
+    });
+
+    if (isAllowed) {
       console.log('✅ Origen permitido:', origin);
       return callback(null, true);
     }
