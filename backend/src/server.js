@@ -19,50 +19,55 @@ const isProduction = process.env.NODE_ENV === 'production';
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// 🔥 Configuración de CORS mejorada - permite todos los subdominios de Vercel
+// Configuración de CORS mejorada para Vercel
 const allowedOrigins = [
   'https://seminario-reformado-b4b5.vercel.app',
-  /^https:\/\/seminario-reformado-b4b5-.*\.vercel\.app$/, // Todos los subdominios de Vercel
+  /^https:\/\/seminario-reformado-b4b5(-[a-z0-9]+)?\.vercel\.app$/, // Todos los subdominios de Vercel
   'http://localhost:3000',
   'http://localhost:5173',
   'http://127.0.0.1:3000',
 ];
 
-app.use(cors({
-  origin: (origin, callback) => {
-    // Permitir peticiones sin origen (archivos locales, Postman, curl, etc.)
-    if (!origin) {
-      console.log('✅ Petición sin origen (acceso directo) - permitida');
-      return callback(null, true);
-    }
-
-    // En desarrollo, permitir cualquier origen
-    if (!isProduction) {
-      console.log('✅ Desarrollo - Origen permitido:', origin);
-      return callback(null, true);
-    }
-
-    // Verificar si el origen está en la lista O coincide con el patrón regex
-    const isAllowed = allowedOrigins.some(allowedOrigin => {
-      if (typeof allowedOrigin === 'string') {
-        return allowedOrigin === origin;
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      // Permitir peticiones sin origen (archivos locales, Postman, curl, etc.)
+      if (!origin) {
+        console.log('✅ Petición sin origen (acceso directo) - permitida');
+        return callback(null, true);
       }
-      // Si es regex, probar el patrón
-      return allowedOrigin.test(origin);
-    });
 
-    if (isAllowed) {
-      console.log('✅ Origen permitido:', origin);
-      return callback(null, true);
-    }
+      // En desarrollo, permitir cualquier origen
+      if (!isProduction) {
+        console.log('✅ Desarrollo - Origen permitido:', origin);
+        return callback(null, true);
+      }
 
-    console.log('⚠️ Origen bloqueado:', origin);
-    callback(new Error('Not allowed by CORS'));
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-}));
+      // Verificar si el origen está en la lista o coincide con el patrón regex
+      const isAllowed = allowedOrigins.some(allowedOrigin => {
+        if (typeof allowedOrigin === 'string') {
+          return allowedOrigin === origin;
+        }
+        // Si es regex, probar el patrón
+        return allowedOrigin.test(origin);
+      });
+
+      if (isAllowed) {
+        console.log('✅ Origen permitido:', origin);
+        return callback(null, true);
+      }
+
+      console.log('⚠️ Origen bloqueado:', origin);
+      callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
+  })
+);
+
+// Manejo de OPTIONS para solicitudes preflight
+app.options('*', cors());
 
 /* =========================
    CONFIGURACIÓN DE LA BASE DE DATOS
@@ -358,7 +363,7 @@ app.put('/api/resources/:id', async (req, res) => {
     const { title, authors, area, type, year, abstract, tags, file_url } = req.body;
 
     const result = await queryWithRetry(
-      `UPDATE resources 
+      `UPDATE resources
        SET title = COALESCE($1, title),
            authors = COALESCE($2, authors),
            area = COALESCE($3, area),
