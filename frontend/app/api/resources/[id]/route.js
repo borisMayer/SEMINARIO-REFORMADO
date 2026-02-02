@@ -1,7 +1,7 @@
 // frontend/app/api/resources/[id]/route.js
 // Endpoints para gestionar un recurso específico por ID
 
-import { query } from '@/lib/db';
+import { query } from '../../../lib/db.js';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
