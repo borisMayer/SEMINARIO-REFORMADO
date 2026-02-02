@@ -1,7 +1,7 @@
 // frontend/app/api/health/route.js
 // Health check endpoint para verificar estado del servidor y base de datos
 
-import { query } from '../../lib/db';
+import { query } from '@/lib/db';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic'; // Evita cacheo
