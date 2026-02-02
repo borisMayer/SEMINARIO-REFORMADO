@@ -1,11 +1,9 @@
 // src/lib/api.ts
-// API client para conectar con el backend en Railway - SIN PROXY
+// API client para conectar con Vercel API Routes
 
-const USE_PROXY = false;
 const API_URL = ''; // Usar rutas relativas en Vercel
 
-console.log('🔗 API URL:', API_URL);
-console.log('🔗 Usando proxy:', USE_PROXY);
+console.log('🔗 API configurado para usar Vercel API Routes');
 
 // ============================================
 // TIPOS (TypeScript)
@@ -65,16 +63,13 @@ async function handleResponse<T>(response: Response): Promise<T> {
   return response.json();
 }
 
-// Función para construir la URL - SIN PROXY
+// Función para construir la URL - Rutas relativas para Vercel
 function getUrl(path: string, params?: URLSearchParams): string {
-  if (USE_PROXY) {
-    return `/api/proxy?path=${encodeURIComponent(params ? `${path}?${params}` : path)}`;
-  }
-  return `${API_URL}${path}${params ? `?${params}` : ''}`;
+  return `${path}${params ? `?${params}` : ''}`;
 }
 
 // ============================================
-// RECURSOS - Funciones exportadas individualmente
+// RECURSOS
 // ============================================
 export async function fetchResources(filters?: {
   q?: string;
@@ -84,15 +79,16 @@ export async function fetchResources(filters?: {
   tags?: string;
 }): Promise<Resource[]> {
   const params = new URLSearchParams();
-  if (filters?.q) params.append('q', filters.q);
+  if (filters?.q) params.append('search', filters.q);
   if (filters?.area) params.append('area', filters.area);
   if (filters?.type) params.append('type', filters.type);
   if (filters?.year) params.append('year', filters.year);
   if (filters?.tags) params.append('tags', filters.tags);
 
-function getUrl(path: string, params?: URLSearchParams): string {
-  // Usar rutas relativas en Vercel (API Routes están en /api/)
-  return `${path}${params ? `?${params}` : ''}`;
+  const url = getUrl('/api/resources', params.toString() ? params : undefined);
+  console.log('Fetching resources from:', url);
+  const response = await fetch(url);
+  return handleResponse<Resource[]>(response);
 }
 
 export async function createResource(data: {
@@ -103,7 +99,7 @@ export async function createResource(data: {
   year: string;
   abstract?: string;
   tags?: string[];
-  file_url?: string;
+  file_url?: string | null;
 }): Promise<Resource> {
   const url = getUrl('/api/resources');
   console.log('Creating resource at:', url);
@@ -136,7 +132,7 @@ export async function deleteResource(id: number): Promise<{ message: string; id:
 }
 
 // ============================================
-// CURSOS - Funciones exportadas individualmente
+// CURSOS
 // ============================================
 export async function fetchCourses(): Promise<Course[]> {
   const url = getUrl('/api/courses');
@@ -164,7 +160,7 @@ export async function createCourse(data: {
 }
 
 // ============================================
-// MÓDULOS - Funciones exportadas individualmente
+// MÓDULOS
 // ============================================
 export async function fetchModules(courseId: number): Promise<Module[]> {
   const url = getUrl(`/api/courses/${courseId}/modules`);
@@ -189,7 +185,7 @@ export async function createModule(data: {
 }
 
 // ============================================
-// ITEMS - Funciones exportadas individualmente
+// ITEMS
 // ============================================
 export async function fetchItems(moduleId: number): Promise<Item[]> {
   const url = getUrl(`/api/modules/${moduleId}/items`);
@@ -216,7 +212,7 @@ export async function createItem(data: {
 }
 
 // ============================================
-// BIBLIOTECA - Funciones exportadas individualmente
+// BIBLIOTECA
 // ============================================
 export async function fetchLibrary(userId: string): Promise<Resource[]> {
   const url = getUrl(`/api/library/${userId}`);
@@ -246,24 +242,22 @@ export async function removeFromLibrary(userId: string, resourceId: number): Pro
 }
 
 // ============================================
-// HEALTH CHECK - Funciones exportadas individualmente
+// HEALTH CHECK
 // ============================================
 export async function checkHealth(): Promise<{
-  ok: boolean;
-  uptime: number;
+  status: string;
   timestamp: string;
-  memory: string;
+  database: any;
 }> {
-  const url = getUrl('/health');
+  const url = getUrl('/api/health');
   console.log('Checking health at:', url);
   const response = await fetch(url);
   return handleResponse(response);
 }
 
 export async function checkDBHealth(): Promise<{
-  ok: boolean;
-  database: string;
-  responseTime: string;
+  status: string;
+  database: any;
   timestamp: string;
 }> {
   const url = getUrl('/api/health');
@@ -273,8 +267,7 @@ export async function checkDBHealth(): Promise<{
 }
 
 // ============================================
-// EXPORTACIONES AGRUPADAS (opcionales)
-// Para uso alternativo en el futuro
+// EXPORTACIONES AGRUPADAS
 // ============================================
 export const resourcesApi = {
   getAll: fetchResources,
@@ -309,7 +302,6 @@ export const healthApi = {
   checkDB: checkDBHealth,
 };
 
-// Exportación por defecto con todo agrupado
 const api = {
   resources: resourcesApi,
   courses: coursesApi,
