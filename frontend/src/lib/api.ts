@@ -1,8 +1,8 @@
 // src/lib/api.ts
 // API client para conectar con el backend en Railway - SIN PROXY
 
-const USE_PROXY = false; // ✅ Desactivado - usar Railway directamente
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://seminario-reformado-production.up.railway.app';
+const USE_PROXY = false;
+const API_URL = ''; // Usar rutas relativas en Vercel
 
 console.log('🔗 API URL:', API_URL);
 console.log('🔗 Usando proxy:', USE_PROXY);
