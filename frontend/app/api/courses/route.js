@@ -1,7 +1,7 @@
 // frontend/app/api/courses/route.js
 // Endpoints para gestionar cursos
 
-import { query } from '@/lib/db';
+import { query } from '../../lib/db.js';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic';
