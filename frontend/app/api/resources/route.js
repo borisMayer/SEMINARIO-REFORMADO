@@ -1,7 +1,7 @@
 // frontend/app/api/resources/route.js
 // Endpoints para gestionar recursos educativos
 
-import { query } from '../../lib/db.js';
+import { query } from '../../lib/db';
 import { NextResponse } from 'next/server';
 
 export const dynamic = 'force-dynamic'; // Evita cacheo
