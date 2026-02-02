@@ -90,10 +90,9 @@ export async function fetchResources(filters?: {
   if (filters?.year) params.append('year', filters.year);
   if (filters?.tags) params.append('tags', filters.tags);
 
-  const url = getUrl('/api/resources', params.toString() ? params : undefined);
-  console.log('Fetching resources from:', url);
-  const response = await fetch(url);
-  return handleResponse<Resource[]>(response);
+function getUrl(path: string, params?: URLSearchParams): string {
+  // Usar rutas relativas en Vercel (API Routes están en /api/)
+  return `${path}${params ? `?${params}` : ''}`;
 }
 
 export async function createResource(data: {
