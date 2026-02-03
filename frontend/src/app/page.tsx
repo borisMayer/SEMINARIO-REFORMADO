@@ -32,5 +32,3 @@ export default function Home() {
     </div>
   );
 }
-
-Force new deployment
