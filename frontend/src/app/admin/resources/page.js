@@ -306,16 +306,3 @@ export default function AdminResources() {
     </div>
   );
 }
-```
-
-4. Commit: "Add admin resources management page"
-
----
-
-**¡Listo!** Has creado el panel de administración completo. 
-
-Ahora Vercel debería hacer un redeploy automáticamente. Espera 2-3 minutos y prueba:
-```
-https://seminario-reformado.vercel.app/api/health
-https://seminario-reformado.vercel.app/admin
-https://seminario-reformado.vercel.app/admin/resources
