@@ -1,6 +1,5 @@
 // frontend/lib/db.js
 // Utilidad para conectar con PostgreSQL (Neon)
-
 import { Pool } from 'pg';
 
 let pool;
@@ -10,12 +9,23 @@ let pool;
  */
 export function getPool() {
   if (!pool) {
+    // CRÍTICO: Verificar que DATABASE_URL exista
+    if (!process.env.DATABASE_URL) {
+      throw new Error(
+        'DATABASE_URL is not defined. Please set it in Vercel Environment Variables.'
+      );
+    }
+
+    console.log('Initializing database pool with DATABASE_URL:', 
+      process.env.DATABASE_URL.substring(0, 30) + '...' // Solo mostrar inicio para seguridad
+    );
+
     pool = new Pool({
       connectionString: process.env.DATABASE_URL,
       ssl: {
         rejectUnauthorized: false
       },
-      // Configuración optimizada para serverless
+      // Configuración optimizada para serverless (Vercel)
       max: 1, // Máximo de conexiones en serverless
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 10000,
@@ -26,6 +36,7 @@ export function getPool() {
       console.error('Unexpected error on idle client', err);
     });
   }
+
   return pool;
 }
 
@@ -43,7 +54,7 @@ export async function query(text, params) {
     const result = await pool.query(text, params);
     const duration = Date.now() - start;
     
-    // Log para debugging (puedes comentar en producción)
+    // Log para debugging
     console.log('Executed query', { 
       text: text.substring(0, 100), // Solo primeros 100 caracteres
       duration, 
