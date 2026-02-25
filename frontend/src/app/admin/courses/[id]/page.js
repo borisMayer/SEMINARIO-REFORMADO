@@ -193,7 +193,7 @@ export default function CourseModulesPage({ params }) {
           </Link>
           <div className="flex justify-between items-start">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">{course?.title}</h1>
+              <h1 className="text-3xl font-bold text-gray-900">{course?.name}</h1>
               <p className="text-gray-600 mt-2">{course?.description}</p>
             </div>
             <button
