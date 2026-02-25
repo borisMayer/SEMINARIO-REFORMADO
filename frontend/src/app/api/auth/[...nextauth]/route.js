@@ -1,7 +1,7 @@
 import NextAuth from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 
-const ALLOWED_EMAILS = ['bmayer.rojel@gmail.com'];
+const ADMIN_EMAIL = 'bmayer.rojel@gmail.com';
 
 const authOptions = {
   providers: [
@@ -11,16 +11,19 @@ const authOptions = {
     }),
   ],
   callbacks: {
-    async signIn({ user }) {
-      if (ALLOWED_EMAILS.includes(user.email)) {
-        return true;
+    async signIn() {
+      return true; // Allow all Google accounts
+    },
+    async session({ session }) {
+      if (session?.user) {
+        session.user.isAdmin = session.user.email === ADMIN_EMAIL;
       }
-      return false;
+      return session;
     },
   },
   pages: {
-    signIn: '/admin/login',
-    error: '/admin/login',
+    signIn: '/login',
+    error: '/login',
   },
 };
 

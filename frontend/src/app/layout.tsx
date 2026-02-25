@@ -1,9 +1,12 @@
-
 import '../styles/globals.css';
-export default function RootLayout({ children }) {
+import AuthProvider from '@/components/AuthProvider';
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }
