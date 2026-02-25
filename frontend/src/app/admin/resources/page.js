@@ -28,10 +28,10 @@ export default function AdminResources() {
     try {
       const response = await fetch('/api/resources');
       const data = await response.json();
-      setResources(data);
-      setLoading(false);
+      setResources(Array.isArray(data) ? data : []);
     } catch (error) {
       console.error('Error fetching resources:', error);
+    } finally {
       setLoading(false);
     }
   };
@@ -62,7 +62,8 @@ export default function AdminResources() {
         resetForm();
         fetchResources();
       } else {
-        alert('Error al guardar recurso');
+        const err = await response.json().catch(() => ({}));
+        alert(err.error || err.details || 'Error al guardar recurso');
       }
     } catch (error) {
       console.error('Error saving resource:', error);
@@ -91,10 +92,10 @@ export default function AdminResources() {
     try {
       const response = await fetch(`/api/resources/${id}`, { method: 'DELETE' });
       if (response.ok) {
-        alert('Recurso eliminado');
         fetchResources();
       } else {
-        alert('Error al eliminar recurso');
+        const err = await response.json().catch(() => ({}));
+        alert(err.error || 'Error al eliminar recurso');
       }
     } catch (error) {
       console.error('Error deleting resource:', error);

@@ -27,6 +27,21 @@ async function runMigrations(p) {
         order_index INTEGER NOT NULL DEFAULT 0,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       );
+
+      ALTER TABLE resources ALTER COLUMN year TYPE TEXT USING year::TEXT;
+      ALTER TABLE resources ADD COLUMN IF NOT EXISTS abstract TEXT DEFAULT '';
+      ALTER TABLE resources ADD COLUMN IF NOT EXISTS tags TEXT[] DEFAULT '{}';
+      ALTER TABLE resources ADD COLUMN IF NOT EXISTS file_url TEXT;
+      ALTER TABLE resources ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();
+
+      CREATE TABLE IF NOT EXISTS user_library (
+        id SERIAL PRIMARY KEY,
+        user_id VARCHAR(100) NOT NULL,
+        resource_id INTEGER REFERENCES resources(id) ON DELETE CASCADE,
+        status VARCHAR(50) DEFAULT 'saved',
+        added_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE(user_id, resource_id)
+      );
     `);
     migrationDone = true;
     console.log('Migrations applied successfully');

@@ -7,15 +7,16 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   try {
     const result = await query(`
-      SELECT 
+      SELECT
         ul.id,
         ul.user_id,
         ul.resource_id,
         ul.status,
-        ul.progress_percentage,
         ul.added_at,
-        r.title as resource_title,
-        r.author as resource_author
+        r.title   AS resource_title,
+        r.authors AS resource_authors,
+        r.type    AS resource_type,
+        r.area    AS resource_area
       FROM user_library ul
       LEFT JOIN resources r ON ul.resource_id = r.id
       ORDER BY ul.added_at DESC
