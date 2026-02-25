@@ -5,10 +5,24 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { use } from 'react';
 
+const ITEM_TYPE_ICONS = {
+  Video: '🎥',
+  Lectura: '📖',
+  Lección: '📄',
+  Quiz: '📝',
+};
+
+function extractYouTubeId(url) {
+  if (!url) return null;
+  const regex = /(?:youtube\.com\/(?:[^/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?/\s]{11})/;
+  const match = url.match(regex);
+  return match ? match[1] : null;
+}
+
 export default function CourseModulesPage({ params }) {
   const resolvedParams = use(params);
-  const courseId = resolvedParams.id; // Cambiado de courseId a id
-  
+  const courseId = resolvedParams.id;
+
   const [course, setCourse] = useState(null);
   const [modules, setModules] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,20 +30,18 @@ export default function CourseModulesPage({ params }) {
   const [showItemForm, setShowItemForm] = useState(false);
   const [selectedModuleId, setSelectedModuleId] = useState(null);
   const [expandedModules, setExpandedModules] = useState({});
+  const [saving, setSaving] = useState(false);
 
   const [moduleFormData, setModuleFormData] = useState({
     title: '',
-    description: '',
-    order_index: 1
+    order_index: 1,
   });
 
   const [itemFormData, setItemFormData] = useState({
     title: '',
-    content: '',
-    item_type: 'video',
-    resource_url: '',
-    duration_minutes: '',
-    order_index: 1
+    type: 'Video',
+    content_url: '',
+    order_index: 1,
   });
 
   useEffect(() => {
@@ -51,16 +63,15 @@ export default function CourseModulesPage({ params }) {
     try {
       const response = await fetch(`/api/modules?courseId=${courseId}`);
       const modulesData = await response.json();
-      
-      // Obtener items para cada módulo
+
       const modulesWithItems = await Promise.all(
         modulesData.map(async (module) => {
           const itemsResponse = await fetch(`/api/items?moduleId=${module.id}`);
           const items = await itemsResponse.json();
-          return { ...module, items };
+          return { ...module, items: Array.isArray(items) ? items : [] };
         })
       );
-      
+
       setModules(modulesWithItems);
     } catch (error) {
       console.error('Error fetching modules:', error);
@@ -71,106 +82,99 @@ export default function CourseModulesPage({ params }) {
 
   const handleCreateModule = async (e) => {
     e.preventDefault();
+    setSaving(true);
     try {
       const response = await fetch('/api/modules', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...moduleFormData,
-          course_id: parseInt(courseId)
-        })
+          title: moduleFormData.title,
+          order_index: moduleFormData.order_index,
+          course_id: parseInt(courseId),
+        }),
       });
 
       if (response.ok) {
         setShowModuleForm(false);
-        setModuleFormData({ title: '', description: '', order_index: 1 });
+        setModuleFormData({ title: '', order_index: 1 });
         fetchModules();
-        alert('Módulo creado exitosamente');
+      } else {
+        const err = await response.json();
+        alert(err.error || 'Error al crear el módulo');
       }
     } catch (error) {
       console.error('Error creating module:', error);
       alert('Error al crear el módulo');
+    } finally {
+      setSaving(false);
     }
   };
 
   const handleCreateItem = async (e) => {
     e.preventDefault();
+    setSaving(true);
     try {
       const response = await fetch('/api/items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ...itemFormData,
           module_id: parseInt(selectedModuleId),
-          duration_minutes: parseInt(itemFormData.duration_minutes) || null
-        })
+          title: itemFormData.title,
+          type: itemFormData.type,
+          content_url: itemFormData.content_url || null,
+          order_index: itemFormData.order_index,
+        }),
       });
 
       if (response.ok) {
         setShowItemForm(false);
-        setItemFormData({
-          title: '',
-          content: '',
-          item_type: 'video',
-          resource_url: '',
-          duration_minutes: '',
-          order_index: 1
-        });
+        setItemFormData({ title: '', type: 'Video', content_url: '', order_index: 1 });
         setSelectedModuleId(null);
         fetchModules();
-        alert('Clase creada exitosamente');
+      } else {
+        const err = await response.json();
+        alert(err.error || 'Error al crear la clase');
       }
     } catch (error) {
       console.error('Error creating item:', error);
       alert('Error al crear la clase');
+    } finally {
+      setSaving(false);
     }
   };
 
   const deleteModule = async (moduleId) => {
     if (!confirm('¿Eliminar este módulo y todas sus clases?')) return;
-    
     try {
-      const response = await fetch(`/api/modules/${moduleId}`, {
-        method: 'DELETE'
-      });
-      
+      const response = await fetch(`/api/modules/${moduleId}`, { method: 'DELETE' });
       if (response.ok) {
         fetchModules();
-        alert('Módulo eliminado');
+      } else {
+        alert('Error al eliminar el módulo');
       }
     } catch (error) {
       console.error('Error deleting module:', error);
+      alert('Error al eliminar el módulo');
     }
   };
 
   const deleteItem = async (itemId) => {
     if (!confirm('¿Eliminar esta clase?')) return;
-    
     try {
-      const response = await fetch(`/api/items/${itemId}`, {
-        method: 'DELETE'
-      });
-      
+      const response = await fetch(`/api/items/${itemId}`, { method: 'DELETE' });
       if (response.ok) {
         fetchModules();
-        alert('Clase eliminada');
+      } else {
+        alert('Error al eliminar la clase');
       }
     } catch (error) {
       console.error('Error deleting item:', error);
+      alert('Error al eliminar la clase');
     }
   };
 
   const toggleModule = (moduleId) => {
-    setExpandedModules(prev => ({
-      ...prev,
-      [moduleId]: !prev[moduleId]
-    }));
-  };
-
-  const extractYouTubeId = (url) => {
-    const regex = /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/)([^"&?\/\s]{11})/;
-    const match = url.match(regex);
-    return match ? match[1] : null;
+    setExpandedModules((prev) => ({ ...prev, [moduleId]: !prev[moduleId] }));
   };
 
   if (loading) {
@@ -194,10 +198,20 @@ export default function CourseModulesPage({ params }) {
           <div className="flex justify-between items-start">
             <div>
               <h1 className="text-3xl font-bold text-gray-900">{course?.name}</h1>
-              <p className="text-gray-600 mt-2">{course?.description}</p>
+              {course?.description && (
+                <p className="text-gray-600 mt-2">{course.description}</p>
+              )}
+              {course?.term && (
+                <span className="inline-block mt-2 bg-amber-100 text-amber-700 text-sm px-3 py-0.5 rounded-full">
+                  {course.term}
+                </span>
+              )}
             </div>
             <button
-              onClick={() => setShowModuleForm(true)}
+              onClick={() => {
+                setModuleFormData({ title: '', order_index: modules.length + 1 });
+                setShowModuleForm(true);
+              }}
               className="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700"
             >
               + Nuevo Módulo
@@ -208,13 +222,13 @@ export default function CourseModulesPage({ params }) {
         {/* Módulos */}
         {modules.length === 0 ? (
           <div className="bg-white rounded-lg shadow p-8 text-center">
-            <p className="text-gray-600">No hay módulos. Crea el primer módulo para este curso.</p>
+            <p className="text-gray-600">No hay módulos. Creá el primer módulo para este curso.</p>
           </div>
         ) : (
           <div className="space-y-4">
             {modules.map((module) => (
               <div key={module.id} className="bg-white rounded-lg shadow overflow-hidden">
-                <div 
+                <div
                   className="flex justify-between items-center p-6 cursor-pointer hover:bg-gray-50"
                   onClick={() => toggleModule(module.id)}
                 >
@@ -222,8 +236,7 @@ export default function CourseModulesPage({ params }) {
                     <h3 className="text-xl font-semibold text-gray-900">
                       {module.order_index}. {module.title}
                     </h3>
-                    <p className="text-gray-600 text-sm mt-1">{module.description}</p>
-                    <p className="text-gray-500 text-xs mt-2">
+                    <p className="text-gray-500 text-xs mt-1">
                       {module.items?.length || 0} clase(s)
                     </p>
                   </div>
@@ -232,22 +245,26 @@ export default function CourseModulesPage({ params }) {
                       onClick={(e) => {
                         e.stopPropagation();
                         setSelectedModuleId(module.id);
+                        setItemFormData({
+                          title: '',
+                          type: 'Video',
+                          content_url: '',
+                          order_index: (module.items?.length || 0) + 1,
+                        });
                         setShowItemForm(true);
                       }}
-                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+                      className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 text-sm"
                     >
                       + Clase
                     </button>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteModule(module.id);
-                      }}
-                      className="text-red-600 hover:text-red-800"
+                      onClick={(e) => { e.stopPropagation(); deleteModule(module.id); }}
+                      className="text-red-500 hover:text-red-700 text-lg"
+                      title="Eliminar módulo"
                     >
                       🗑️
                     </button>
-                    <span className="text-gray-400">
+                    <span className="text-gray-400 text-sm">
                       {expandedModules[module.id] ? '▼' : '▶'}
                     </span>
                   </div>
@@ -259,62 +276,51 @@ export default function CourseModulesPage({ params }) {
                     {!module.items || module.items.length === 0 ? (
                       <p className="text-gray-500 text-sm">No hay clases en este módulo</p>
                     ) : (
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         {module.items.map((item) => (
                           <div key={item.id} className="bg-white rounded-lg p-4 shadow-sm">
                             <div className="flex justify-between items-start">
                               <div className="flex-1">
                                 <div className="flex items-center gap-3">
                                   <span className="text-2xl">
-                                    {item.item_type === 'video' ? '🎥' : 
-                                     item.item_type === 'reading' ? '📖' : 
-                                     item.item_type === 'quiz' ? '📝' : '📄'}
+                                    {ITEM_TYPE_ICONS[item.type] || '📄'}
                                   </span>
                                   <div>
                                     <h4 className="font-semibold text-gray-900">
                                       {item.order_index}. {item.title}
                                     </h4>
-                                    {item.content && (
-                                      <p className="text-sm text-gray-600 mt-1">{item.content}</p>
-                                    )}
-                                    {item.duration_minutes && (
-                                      <p className="text-xs text-gray-500 mt-1">
-                                        Duración: {item.duration_minutes} minutos
-                                      </p>
-                                    )}
+                                    <span className="text-xs text-gray-500">{item.type}</span>
                                   </div>
                                 </div>
-                                
-                                {/* Vista previa de YouTube */}
-                                {item.item_type === 'video' && item.resource_url && (
-                                  <div className="mt-4">
-                                    {extractYouTubeId(item.resource_url) ? (
-                                      <div className="aspect-video max-w-md">
-                                        <iframe
-                                          className="w-full h-full rounded"
-                                          src={`https://www.youtube.com/embed/${extractYouTubeId(item.resource_url)}`}
-                                          title={item.title}
-                                          frameBorder="0"
-                                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                                          allowFullScreen
-                                        ></iframe>
-                                      </div>
-                                    ) : (
-                                      <a 
-                                        href={item.resource_url}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        className="text-blue-600 hover:underline text-sm"
-                                      >
-                                        🔗 {item.resource_url}
-                                      </a>
-                                    )}
+
+                                {/* Vista previa YouTube */}
+                                {item.content_url && extractYouTubeId(item.content_url) && (
+                                  <div className="mt-4 aspect-video max-w-md">
+                                    <iframe
+                                      className="w-full h-full rounded"
+                                      src={`https://www.youtube.com/embed/${extractYouTubeId(item.content_url)}`}
+                                      title={item.title}
+                                      frameBorder="0"
+                                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                      allowFullScreen
+                                    />
                                   </div>
+                                )}
+                                {item.content_url && !extractYouTubeId(item.content_url) && (
+                                  <a
+                                    href={item.content_url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:underline text-sm mt-2 inline-block"
+                                  >
+                                    🔗 {item.content_url}
+                                  </a>
                                 )}
                               </div>
                               <button
                                 onClick={() => deleteItem(item.id)}
-                                className="text-red-600 hover:text-red-800 ml-4"
+                                className="text-red-500 hover:text-red-700 ml-4 text-lg"
+                                title="Eliminar clase"
                               >
                                 🗑️
                               </button>
@@ -333,7 +339,7 @@ export default function CourseModulesPage({ params }) {
         {/* Modal: Nuevo Módulo */}
         {showModuleForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-8 max-w-2xl w-full">
+            <div className="bg-white rounded-lg p-8 max-w-lg w-full">
               <h2 className="text-2xl font-bold mb-6">Nuevo Módulo</h2>
               <form onSubmit={handleCreateModule} className="space-y-4">
                 <div>
@@ -342,39 +348,29 @@ export default function CourseModulesPage({ params }) {
                     type="text"
                     required
                     value={moduleFormData.title}
-                    onChange={(e) => setModuleFormData({...moduleFormData, title: e.target.value})}
+                    onChange={(e) => setModuleFormData({ ...moduleFormData, title: e.target.value })}
                     className="w-full border rounded-lg px-3 py-2"
                     placeholder="Ej: Introducción a la Doctrina de la Gracia"
+                    autoFocus
                   />
                 </div>
-
-                <div>
-                  <label className="block text-sm font-medium mb-1">Descripción</label>
-                  <textarea
-                    value={moduleFormData.description}
-                    onChange={(e) => setModuleFormData({...moduleFormData, description: e.target.value})}
-                    className="w-full border rounded-lg px-3 py-2"
-                    rows="3"
-                  />
-                </div>
-
                 <div>
                   <label className="block text-sm font-medium mb-1">Orden</label>
                   <input
                     type="number"
                     min="1"
                     value={moduleFormData.order_index}
-                    onChange={(e) => setModuleFormData({...moduleFormData, order_index: parseInt(e.target.value)})}
+                    onChange={(e) => setModuleFormData({ ...moduleFormData, order_index: parseInt(e.target.value) })}
                     className="w-full border rounded-lg px-3 py-2"
                   />
                 </div>
-
-                <div className="flex gap-4 pt-4">
+                <div className="flex gap-4 pt-2">
                   <button
                     type="submit"
-                    className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700"
+                    disabled={saving}
+                    className="flex-1 bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 disabled:opacity-50"
                   >
-                    Crear Módulo
+                    {saving ? 'Guardando...' : 'Crear Módulo'}
                   </button>
                   <button
                     type="button"
@@ -392,7 +388,7 @@ export default function CourseModulesPage({ params }) {
         {/* Modal: Nueva Clase */}
         {showItemForm && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg p-8 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="bg-white rounded-lg p-8 max-w-lg w-full">
               <h2 className="text-2xl font-bold mb-6">Nueva Clase</h2>
               <form onSubmit={handleCreateItem} className="space-y-4">
                 <div>
@@ -401,92 +397,63 @@ export default function CourseModulesPage({ params }) {
                     type="text"
                     required
                     value={itemFormData.title}
-                    onChange={(e) => setItemFormData({...itemFormData, title: e.target.value})}
+                    onChange={(e) => setItemFormData({ ...itemFormData, title: e.target.value })}
                     className="w-full border rounded-lg px-3 py-2"
                     placeholder="Ej: Lección 1 - La Depravación Total"
+                    autoFocus
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Tipo de Clase</label>
+                  <label className="block text-sm font-medium mb-1">Tipo</label>
                   <select
-                    value={itemFormData.item_type}
-                    onChange={(e) => setItemFormData({...itemFormData, item_type: e.target.value})}
+                    value={itemFormData.type}
+                    onChange={(e) => setItemFormData({ ...itemFormData, type: e.target.value })}
                     className="w-full border rounded-lg px-3 py-2"
                   >
-                    <option value="video">🎥 Video</option>
-                    <option value="reading">📖 Lectura</option>
-                    <option value="lesson">📄 Lección</option>
-                    <option value="quiz">📝 Quiz</option>
+                    <option value="Video">🎥 Video</option>
+                    <option value="Lectura">📖 Lectura</option>
+                    <option value="Lección">📄 Lección</option>
+                    <option value="Quiz">📝 Quiz</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">
-                    URL del Video de YouTube *
-                  </label>
+                  <label className="block text-sm font-medium mb-1">URL del contenido</label>
                   <input
                     type="url"
-                    required
-                    value={itemFormData.resource_url}
-                    onChange={(e) => setItemFormData({...itemFormData, resource_url: e.target.value})}
+                    value={itemFormData.content_url}
+                    onChange={(e) => setItemFormData({ ...itemFormData, content_url: e.target.value })}
                     className="w-full border rounded-lg px-3 py-2"
                     placeholder="https://www.youtube.com/watch?v=..."
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Pega el enlace completo de YouTube aquí
+                    YouTube, PDF u otro enlace
                   </p>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium mb-1">Descripción</label>
-                  <textarea
-                    value={itemFormData.content}
-                    onChange={(e) => setItemFormData({...itemFormData, content: e.target.value})}
+                  <label className="block text-sm font-medium mb-1">Orden</label>
+                  <input
+                    type="number"
+                    min="1"
+                    value={itemFormData.order_index}
+                    onChange={(e) => setItemFormData({ ...itemFormData, order_index: parseInt(e.target.value) })}
                     className="w-full border rounded-lg px-3 py-2"
-                    rows="3"
-                    placeholder="Descripción de la clase..."
                   />
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Duración (minutos)</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={itemFormData.duration_minutes}
-                      onChange={(e) => setItemFormData({...itemFormData, duration_minutes: e.target.value})}
-                      className="w-full border rounded-lg px-3 py-2"
-                      placeholder="45"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium mb-1">Orden</label>
-                    <input
-                      type="number"
-                      min="1"
-                      value={itemFormData.order_index}
-                      onChange={(e) => setItemFormData({...itemFormData, order_index: parseInt(e.target.value)})}
-                      className="w-full border rounded-lg px-3 py-2"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-4 pt-4">
+                <div className="flex gap-4 pt-2">
                   <button
                     type="submit"
-                    className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700"
+                    disabled={saving}
+                    className="flex-1 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:opacity-50"
                   >
-                    Crear Clase
+                    {saving ? 'Guardando...' : 'Crear Clase'}
                   </button>
                   <button
                     type="button"
-                    onClick={() => {
-                      setShowItemForm(false);
-                      setSelectedModuleId(null);
-                    }}
+                    onClick={() => { setShowItemForm(false); setSelectedModuleId(null); }}
                     className="flex-1 bg-gray-200 text-gray-800 px-6 py-3 rounded-lg hover:bg-gray-300"
                   >
                     Cancelar

@@ -3,6 +3,37 @@
 import { Pool } from 'pg';
 
 let pool;
+let migrationDone = false;
+
+async function runMigrations(p) {
+  if (migrationDone) return;
+  try {
+    await p.query(`
+      ALTER TABLE courses ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
+      ALTER TABLE courses ADD COLUMN IF NOT EXISTS zoom_link TEXT;
+      ALTER TABLE courses ADD COLUMN IF NOT EXISTS youtube_playlist TEXT;
+      ALTER TABLE courses ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();
+
+      ALTER TABLE modules ADD COLUMN IF NOT EXISTS order_index INTEGER DEFAULT 0;
+      ALTER TABLE modules ADD COLUMN IF NOT EXISTS description TEXT DEFAULT '';
+      ALTER TABLE modules ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();
+
+      CREATE TABLE IF NOT EXISTS module_items (
+        id SERIAL PRIMARY KEY,
+        module_id INTEGER REFERENCES modules(id) ON DELETE CASCADE,
+        type VARCHAR(50) NOT NULL,
+        title VARCHAR(300) NOT NULL,
+        content_url TEXT,
+        order_index INTEGER NOT NULL DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      );
+    `);
+    migrationDone = true;
+    console.log('Migrations applied successfully');
+  } catch (err) {
+    console.error('Migration error (non-fatal):', err.message);
+  }
+}
 
 /**
  * Obtiene o crea el pool de conexiones a PostgreSQL
@@ -35,6 +66,9 @@ export function getPool() {
     pool.on('error', (err) => {
       console.error('Unexpected error on idle client', err);
     });
+
+    // Run migrations asynchronously (non-blocking)
+    runMigrations(pool);
   }
 
   return pool;
