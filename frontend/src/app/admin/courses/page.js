@@ -40,9 +40,11 @@ export default function AdminCourses() {
 
   const handleEdit = (course) => {
     setFormData({
-      name: course.name || '',
-      term: course.term || '',
-      instructors: Array.isArray(course.instructors) ? course.instructors.join(', ') : '',
+      name: course.name || course.title || '',
+      term: course.term || course.semester || '',
+      instructors: Array.isArray(course.instructors)
+        ? course.instructors.join(', ')
+        : (course.instructor || ''),
       description: course.description || '',
       zoom_link: course.zoom_link || '',
       youtube_playlist: course.youtube_playlist || ''
@@ -230,12 +232,16 @@ export default function AdminCourses() {
                   <tr key={course.id} className="hover:bg-gray-50">
                     <td className="px-6 py-4 text-sm font-medium text-gray-900">
                       <Link href={`/admin/courses/${course.id}`} className="text-blue-600 hover:underline">
-                        {course.name}
+                        {course.name || course.title || <span className="text-gray-400 italic">Sin nombre</span>}
                       </Link>
                     </td>
-                    <td className="px-6 py-4 text-sm text-gray-600">{course.term}</td>
                     <td className="px-6 py-4 text-sm text-gray-600">
-                      {Array.isArray(course.instructors) ? course.instructors.join(', ') : '—'}
+                      {course.term || course.semester || '—'}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {Array.isArray(course.instructors) && course.instructors.length > 0
+                        ? course.instructors.join(', ')
+                        : (course.instructor || '—')}
                     </td>
                     <td className="px-6 py-4 text-sm">
                       <div className="flex gap-3">
